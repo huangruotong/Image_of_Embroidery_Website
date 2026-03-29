@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructions - Embroidery Design</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #F5F7FA;
+        }
+        .primary-bg {
+            background-color: #1A237E;
+        }
+        .primary-text {
+            color: #1A237E;
+        }
+        .accordion-button {
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            font-weight: 500;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .accordion-button:hover {
+            background-color: #f9fafb;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .accordion-content.open {
+            max-height: 500px;
+        }
+        .chevron {
+            transition: transform 0.3s;
+        }
+        .chevron.rotate {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="primary-bg text-white shadow-md">
+        <div class="w-full px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="{{ url_for('index') }}" class="flex items-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path>
+                    </svg>
+                    <span class="text-xl font-semibold">Embroidery Design</span>
+                </a>
+
+                <div class="flex items-center gap-6">
+                    <a href="{{ url_for('index') }}" class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                        Home
+                    </a>
+                    <a href="{{ url_for('workspace') }}" class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                        Workspace
+                    </a>
+                    <a href="{{ url_for('guide') }}" class="px-3 py-2 rounded-lg bg-white/20 transition-colors">
+                        Instructions
+                    </a>
+
+                    <div id="auth-section">
+                        <a href="{{ url_for('login') }}" id="login-link" class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                            Login
+                        </a>
+                        <div id="user-menu" class="relative hidden">
+                            <button id="user-button" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </button>
+                            <div id="dropdown" class="hidden absolute right-0 mt-2 w-36 bg-white rounded-lg shadow-lg py-2 z-20">
+                                <button id="logout-button" class="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                                    </svg>
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 py-8">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold mb-2 primary-text">
+                    Instructions
+                </h1>
+                <p class="text-gray-600">
+                    Learn about the creation process and the three modes
+                </p>
+            </div>
+
+            <!-- Quick Start -->
+            <div class="bg-white rounded-lg p-6 border-2 mb-8">
+                <h2 class="text-2xl font-semibold mb-6 primary-text">
+                    Steps
+                </h2>
+                
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4 primary-bg">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold mb-2">1. Upload Image</h3>
+                        <p class="text-sm text-gray-600">
+                            Support JPG, PNG, BMP formats with a maximum file size of 5MB
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4 primary-bg">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold mb-2">2. Adjust Parameters</h3>
+                        <p class="text-sm text-gray-600">
+                            Select mode, adjust parameter sliders, and view real-time preview
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4 primary-bg">
+                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold mb-2">3. Export File</h3>
+                        <p class="text-sm text-gray-600">
+                            Choose the format suitable for your embroidery machine and download
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Algorithm Modes -->
+            <div class="bg-white rounded-lg p-6 border-2 mb-8">
+                <h2 class="text-2xl font-semibold mb-6 primary-text">
+                    Modes Explained
+                </h2>
+
+                <div class="space-y-6">
+                    <!-- Line Mode -->
+                    <div class="border-l-4 pl-6" style="border-color: #1A237E;">
+                        <div class="flex items-center gap-3 mb-3">
+                            <svg class="w-6 h-6 primary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                            </svg>
+                            <h3 class="text-xl font-semibold">Line Mode</h3>
+                        </div>
+                        <p class="text-gray-700 mb-4">
+                            Based on <strong>Skeletonization</strong> algorithm, which thins images to single-pixel-wide line skeletons.
+                        </p>
+                        <div class="bg-gray-50 p-4 rounded-lg space-y-2">
+                            <div>
+                                <span class="font-semibold text-sm">Technical Principle:</span>
+                                <p class="text-sm text-gray-600">Progressively "erodes" the image through morphological operations, preserving the centerline structure</p>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-sm">Use Cases:</span>
+                                <p class="text-sm text-gray-600">Handwritten signatures, sketches, simple line art</p>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-sm">Adjustable Parameter:</span>
+                                <p class="text-sm text-gray-600"><strong>Line Precision</strong> - Controls line thickness and detail preservation (0-100)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canny Mode -->
+                    <div class="border-l-4 pl-6" style="border-color: #1A237E;">
+                        <div class="flex items-center gap-3 mb-3">
+                            <svg class="w-6 h-6 primary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <h3 class="text-xl font-semibold">Canny Edge Mode</h3>
+                        </div>
+                        <p class="text-gray-700 mb-4">
+                            Uses the classic <strong>Canny Edge Detection</strong> algorithm to precisely identify image edges through gradient calculation.
+                        </p>
+                        <div class="bg-gray-50 p-4 rounded-lg space-y-2">
+                            <div>
+                                <span class="font-semibold text-sm">Technical Principle:</span>
+                                <p class="text-sm text-gray-600">Gaussian blur → Sobel operator gradient calculation → Double threshold detection → Edge linking</p>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-sm">Use Cases:</span>
+                                <p class="text-sm text-gray-600">Landscape photos, portraits, complex object contours</p>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-sm">Adjustable Parameters:</span>
+                                <p class="text-sm text-gray-600">
+                                    <strong>Threshold Low</strong> (0-255): Pixels below this value are suppressed<br>
+                                    <strong>Threshold High</strong> (0-255): Pixels above this value are confirmed as edges
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Snake Mode -->
+                    <div class="border-l-4 pl-6" style="border-color: #1A237E;">
+                        <div class="flex items-center gap-3 mb-3">
+                            <svg class="w-6 h-6 primary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                            <h3 class="text-xl font-semibold">Snake Contour Mode</h3>
+                        </div>
+                        <p class="text-gray-700 mb-4">
+                            Uses <strong>Active Contour Model</strong>, fitting object boundaries through energy minimization.
+                        </p>
+                        <div class="bg-gray-50 p-4 rounded-lg space-y-2">
+                            <div>
+                                <span class="font-semibold text-sm">Technical Principle:</span>
+                                <p class="text-sm text-gray-600">Initialize contour curve → Iteratively optimize energy function → Contract to target boundary</p>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-sm">Use Cases:</span>
+                                <p class="text-sm text-gray-600">Logo design, closed shapes, color block fill embroidery</p>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-sm">Adjustable Parameters:</span>
+                                <p class="text-sm text-gray-600">
+                                    <strong>Iterations</strong> (10-500): Number of optimization cycles<br>
+                                    <strong>Smoothness</strong> (0-100): Controls contour smoothness
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="bg-white rounded-lg border-2">
+                <div class="p-6">
+                    <h2 class="text-2xl font-semibold mb-6 primary-text">
+                        Frequently Asked Questions
+                    </h2>
+
+                    <div class="border-t border-gray-200">
+                        <div class="accordion-item">
+                            <button class="accordion-button" onclick="toggleAccordion(0)">
+                                <span>How do I choose the best algorithm mode?</span>
+                                <svg class="w-5 h-5 chevron" id="chevron-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div class="accordion-content" id="content-0">
+                                <div class="p-4 text-sm text-gray-600">
+                                    <ul class="space-y-2">
+                                        <li>• <strong>Simple line drawings</strong> (signatures, sketches) → Choose Line mode</li>
+                                        <li>• <strong>Complex photos</strong> (landscapes, portraits) → Choose Canny mode</li>
+                                        <li>• <strong>Icons & Logos</strong> (brand marks, patterns) → Choose Snake mode</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <button class="accordion-button" onclick="toggleAccordion(1)">
+                                <span>Why are my results not ideal?</span>
+                                <svg class="w-5 h-5 chevron" id="chevron-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div class="accordion-content" id="content-1">
+                                <div class="p-4 text-sm text-gray-600">
+                                    <p class="mb-2">Possible reasons and solutions:</p>
+                                    <ul class="list-disc list-inside ml-2 space-y-1">
+                                        <li><strong>Low image quality</strong>: Use high-resolution, clear images</li>
+                                        <li><strong>Incorrect parameters</strong>: Try adjusting sliders and observe the real-time preview</li>
+                                        <li><strong>Wrong algorithm</strong>: Switch to another mode</li>
+                                        <li><strong>Complex background</strong>: Consider removing the background with an image editor first</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <button class="accordion-button" onclick="toggleAccordion(2)">
+                                <span>Can I use the exported files directly for embroidery?</span>
+                                <svg class="w-5 h-5 chevron" id="chevron-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div class="accordion-content" id="content-2">
+                                <div class="p-4 text-sm text-gray-600">
+                                    <p class="mb-2">The exported files contain embroidery path information, but we recommend:</p>
+                                    <ul class="list-disc list-inside ml-2 space-y-1">
+                                        <li>Preview the file in your embroidery machine's software first</li>
+                                        <li>Check if the stitch density and size are appropriate</li>
+                                        <li>Do a test sample before final embroidery</li>
+                                        <li>Adjust parameters based on fabric and thread type</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <button class="accordion-button" onclick="toggleAccordion(3)">
+                                <span>Are my images saved?</span>
+                                <svg class="w-5 h-5 chevron" id="chevron-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div class="accordion-content" id="content-3">
+                                <div class="p-4 text-sm text-gray-600">
+                                    <p>
+                                        <strong>No.</strong> All image processing is performed locally in your browser. 
+                                        Image data is never uploaded to our servers. When you close the page, all data is cleared. 
+                                        We value your privacy and data security.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="mt-8 p-6 rounded-lg" style="background-color: #E3F2FD;">
+                <h3 class="font-semibold mb-3 primary-text">
+                    💡 Professional Tips
+                </h3>
+                <ul class="space-y-2 text-sm text-gray-700">
+                    <li>• Using high-contrast images with clear boundaries will yield better conversion results</li>
+                    <li>• Before final embroidery, we recommend testing on scrap fabric first</li>
+                    <li>• Different fabrics require different stitch density: thin fabric needs smaller stitches, thick fabric needs larger</li>
+                    <li>• If you encounter technical issues, try switching browsers (Chrome or Firefox recommended)</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="primary-bg text-white py-6 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-sm opacity-80">
+                © 2026 Embroidery Design
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    <script>
+        function toggleAccordion(index) {
+            const content = document.getElementById(`content-${index}`);
+            const chevron = document.getElementById(`chevron-${index}`);
+            
+            content.classList.toggle('open');
+            chevron.classList.toggle('rotate');
+        }
+    </script>
+</body>
+</html>
