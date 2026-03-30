@@ -1,9 +1,20 @@
 document.addEventListener('DOMContentLoaded', function() { //确保页面内容加载完成再运行
 
     // Authentication management
-    (function () {
-        function checkAuth() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    (async function () {
+        async function fetchAuthState() {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (!response.ok) {
+                    return { authenticated: false, user: null };
+                }
+                return await response.json();
+            } catch (_) {
+                return { authenticated: false, user: null };
+            }
+        }
+
+        function applyAuthToNav(isLoggedIn) {
             const loginLink = document.getElementById('login-link');
             const userMenu = document.getElementById('user-menu');
 
@@ -14,6 +25,12 @@ document.addEventListener('DOMContentLoaded', function() { //确保页面内容�
                 if (loginLink) loginLink.classList.remove('hidden');
                 if (userMenu) userMenu.classList.add('hidden');
             }
+        }
+
+        async function checkAuth() {
+            const authState = await fetchAuthState();
+            applyAuthToNav(Boolean(authState.authenticated));
+            return authState;
         }
 
         // Toggle user dropdown menu
@@ -37,19 +54,21 @@ document.addEventListener('DOMContentLoaded', function() { //确保页面内容�
         // Handle logout
         const logoutButton = document.getElementById('logout-button');
         if (logoutButton) {
-            logoutButton.addEventListener('click', function () {
-                localStorage.removeItem('isLoggedIn');
-                localStorage.removeItem('userEmail');
+            logoutButton.addEventListener('click', async function () {
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                } catch (_) {
+                    // Ignore network errors and still redirect.
+                }
                 window.location.href = '/';
             });
         }
 
         // 检查 workspace 页面的登录状态
-        function checkWorkspaceAuth() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        async function checkWorkspaceAuth(authState) {
             const loginModal = document.getElementById('login-modal');
 
-            if (!isLoggedIn && loginModal) {
+            if (!authState.authenticated && loginModal) {
                 // 显示登录弹窗
                 loginModal.classList.remove('hidden');
 
@@ -72,10 +91,7 @@ document.addEventListener('DOMContentLoaded', function() { //确保页面内容�
             }
         }
 
-        // 调用 workspace 检查
-        checkWorkspaceAuth();
-
-        // Initialize auth state
-        checkAuth();
+        const authState = await checkAuth();
+        await checkWorkspaceAuth(authState);
     })();
 });

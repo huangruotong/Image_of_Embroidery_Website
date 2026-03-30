@@ -2,7 +2,28 @@ import cv2
 import numpy as np
 import pyembroidery
 import math
-from io import BytesIO
+
+
+def _add_stitch_limited(pattern, last_x, last_y, tx, ty, min_units, max_units):
+    if last_x is None or last_y is None:
+        return last_x, last_y, 0
+
+    dist = math.hypot(tx - last_x, ty - last_y)
+    if dist < min_units:
+        return last_x, last_y, 0
+
+    steps = 1
+    if max_units > 0 and dist > max_units:
+        steps = int(math.ceil(dist / max_units))
+
+    added = 0
+    for i in range(1, steps + 1):
+        nx = last_x + (tx - last_x) * (i / steps)
+        ny = last_y + (ty - last_y) * (i / steps)
+        pattern.add_stitch_absolute(pyembroidery.STITCH, nx, ny)
+        added += 1
+
+    return tx, ty, added
 
 
 def get_image(photo):
@@ -18,7 +39,8 @@ def get_image(photo):
 
 
 def image_to_embroidery_canny(img, #canny边缘法，outline
-                        scale=0.5, threshold1=50, threshold2=150):
+                        scale=0.5, threshold1=50, threshold2=150,
+                        min_stitch_mm=0.8, max_stitch_mm=6.0):
     print("📸 正在读取图片...")
 
     # 1. 缩放图片
@@ -39,37 +61,39 @@ def image_to_embroidery_canny(img, #canny边缘法，outline
     pattern = pyembroidery.EmbPattern()
     stitch_count = 0
 
-    # 定义像素到刺绣单位(0.1mm)的倍率，通常 1像素 对应 1-2个单位比较合适
+    # 刺绣坐标单位是 0.1mm
     pixel_to_emb_unit = 1.0
+    min_units = max(1.0, min_stitch_mm * 10.0)
+    max_units = max(min_units, max_stitch_mm * 10.0)
 
     for contour in contours:
-        if len(contour) < 5: continue  # 过滤杂点
+        if len(contour) < 5:
+            continue
 
-        # 移动到轮廓起点 (JUMP 表示不缝线移动)
         start_pt = contour[0][0]
-        pattern.add_stitch_absolute(pyembroidery.JUMP, start_pt[0] * pixel_to_emb_unit, start_pt[1] * pixel_to_emb_unit)
+        start_x = start_pt[0] * pixel_to_emb_unit
+        start_y = start_pt[1] * pixel_to_emb_unit
+        pattern.add_stitch_absolute(pyembroidery.JUMP, start_x, start_y)
+        last_x, last_y = start_x, start_y
 
-        # 缝合轮廓
         for point in contour[1:]:
-            x, y = point[0][0], point[0][1]
-            pattern.add_stitch_absolute(pyembroidery.STITCH, x * pixel_to_emb_unit, y * pixel_to_emb_unit)
-            stitch_count += 1
+            tx = point[0][0] * pixel_to_emb_unit
+            ty = point[0][1] * pixel_to_emb_unit
+            last_x, last_y, added = _add_stitch_limited(
+                pattern,
+                last_x,
+                last_y,
+                tx,
+                ty,
+                min_units,
+                max_units,
+            )
+            stitch_count += added
 
     pattern.add_stitch_absolute(pyembroidery.END, 0, 0)
 
-    # 5. 导出文件 (核心修正处)
-    print(f"🧵 正在导出... 总针数: {stitch_count}")
-    # 使用通用的 write 函数，它会根据后缀自动识别格式
-
-    try:
-        output = BytesIO()
-        pattern.write(output, ".dst")
-        output.seek(0)
-        print(f"succeeded")
-        return output
-    except Exception as e:
-            print(f"failed")
-            return None
+    print(f"🧵 Canny 模式针数: {stitch_count}")
+    return pattern
 
 
 '''
@@ -88,7 +112,11 @@ def photo_to_raster_embroidery(img, #raster法
                                row_spacing=4,
                                min_stitch=2,
                                max_stitch=12,
-                               white_threshold=220):
+                               white_threshold=220,
+                               min_stitch_mm=0.8,
+                               max_stitch_mm=6.0,
+                               max_jump_mm=8.0,
+                               trim_gap_threshold=8):
     print("📸 正在读取照片...")
 
     # 1. 图像预处理
@@ -108,6 +136,10 @@ def photo_to_raster_embroidery(img, #raster法
     print("🧵 正在计算 Raster 针迹...")
     stitch_count = 0
     last_x, last_y = None, None
+    gap_run = 0
+    min_units = max(1.0, min_stitch_mm * 10.0)
+    max_units = max(min_units, max_stitch_mm * 10.0)
+    max_jump_units = max(max_units, max_jump_mm * 10.0)
 
     for y in range(0, h, row_spacing):
         # 蛇形路径逻辑：偶数行从左往右，奇数行从右往左
@@ -122,29 +154,44 @@ def photo_to_raster_embroidery(img, #raster法
 
             # 跳过过亮的区域（白色背景）
             if pixel >= white_threshold:
-                last_x, last_y = None, None  # 标记连接中断
+                if last_x is not None:
+                    gap_run += 1
                 i += 1
                 continue
 
             # 转换为刺绣物理坐标
             tx, ty = x * scale_factor, y * scale_factor
 
-            # 核心逻辑：如果是段落起点，或者距离上一个点太远，则执行剪线跳针
             if last_x is None:
-                pattern.add_command(pyembroidery.TRIM)
+                if gap_run >= trim_gap_threshold:
+                    pattern.add_command(pyembroidery.TRIM)
                 pattern.add_stitch_absolute(pyembroidery.JUMP, tx, ty)
+                last_x, last_y = tx, ty
+                gap_run = 0
             else:
-                # 正常连线缝纫
-                pattern.add_stitch_absolute(pyembroidery.STITCH, tx, ty)
-                stitch_count += 1
-
-            last_x, last_y = tx, ty
+                jump_dist = math.hypot(tx - last_x, ty - last_y)
+                if jump_dist > max_jump_units:
+                    pattern.add_command(pyembroidery.TRIM)
+                    pattern.add_stitch_absolute(pyembroidery.JUMP, tx, ty)
+                    last_x, last_y = tx, ty
+                else:
+                    last_x, last_y, added = _add_stitch_limited(
+                        pattern,
+                        last_x,
+                        last_y,
+                        tx,
+                        ty,
+                        min_units,
+                        max_units,
+                    )
+                    stitch_count += added
+                gap_run = 0
 
             # 根据像素亮度决定下一个针点的间距
             # 越黑(0) i 增加越小 -> 针脚越密
             t = pixel / white_threshold
             stitch_gap = int(min_stitch + t * (max_stitch - min_stitch))
-            i += max(stitch_gap, 1)  # 步进
+            i += max(stitch_gap, 1)
 
     # 🚩 关键步骤：将图案中心移至 (0,0)，否则刺绣机可能报错
     pattern.move_center_to_origin()
@@ -189,7 +236,10 @@ def photo_to_line_embroidery(img, #line法
                              mm_per_pixel=0.1,
                              min_spacing=2,
                              max_spacing=15,
-                             white_threshold=230):
+                             white_threshold=230,
+                             min_stitch_mm=0.8,
+                             max_stitch_mm=6.0,
+                             max_jump_mm=8.0):
 
 
 
@@ -209,6 +259,9 @@ def photo_to_line_embroidery(img, #line法
     last_x, last_y = None, None
     y = 0
     row_index = 0
+    min_units = max(1.0, min_stitch_mm * 10.0)
+    max_units = max(min_units, max_stitch_mm * 10.0)
+    max_jump_units = max(max_units, max_jump_mm * 10.0)
 
     while y < h:
         # 计算这一整行的平均亮度
@@ -247,16 +300,24 @@ def photo_to_line_embroidery(img, #line法
             if last_x is None:
                 pattern.add_command(pyembroidery.TRIM)
                 pattern.add_stitch_absolute(pyembroidery.JUMP, tx, ty)
+                last_x, last_y = tx, ty
             else:
-                dist = math.sqrt((tx - last_x) ** 2 + (ty - last_y) ** 2)
-                if dist > 30 * scale_factor:
+                dist = math.hypot(tx - last_x, ty - last_y)
+                if dist > max_jump_units:
                     pattern.add_command(pyembroidery.TRIM)
                     pattern.add_stitch_absolute(pyembroidery.JUMP, tx, ty)
+                    last_x, last_y = tx, ty
                 else:
-                    pattern.add_stitch_absolute(pyembroidery.STITCH, tx, ty)
-                    stitch_count += 1
-
-            last_x, last_y = tx, ty
+                    last_x, last_y, added = _add_stitch_limited(
+                        pattern,
+                        last_x,
+                        last_y,
+                        tx,
+                        ty,
+                        min_units,
+                        max_units,
+                    )
+                    stitch_count += added
 
         # 行结束后重置，防止下一行首针和上一行尾针连接
         last_x, last_y = None, None

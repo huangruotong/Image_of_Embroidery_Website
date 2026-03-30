@@ -53,10 +53,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const cannyLowValue = document.getElementById('canny-low-value');
         const cannyHighSlider = document.getElementById('canny-high');
         const cannyHighValue = document.getElementById('canny-high-value');
-        const snakeIterationsSlider = document.getElementById('snake-iterations');
-        const snakeIterValue = document.getElementById('snake-iter-value');
-        const snakeSmoothnessSlider = document.getElementById('snake-smoothness');
-        const snakeSmoothValue = document.getElementById('snake-smooth-value');
+        const rasterRowSpacingSlider = document.getElementById('raster-row-spacing');
+        const rasterRowSpacingValue = document.getElementById('raster-row-spacing-value');
+        const rasterWhiteThresholdSlider = document.getElementById('raster-white-threshold');
+        const rasterWhiteThresholdValue = document.getElementById('raster-white-threshold-value');
+        const rasterContrastBoostSlider = document.getElementById('raster-contrast-boost');
+        const rasterContrastBoostValue = document.getElementById('raster-contrast-boost-value');
 
         // Upload zone click
         uploadZone.addEventListener('click', function () {
@@ -113,8 +115,17 @@ document.addEventListener('DOMContentLoaded', function() {
         setupSlider(linePrecisionSlider, linePrecisionValue);
         setupSlider(cannyLowSlider, cannyLowValue);
         setupSlider(cannyHighSlider, cannyHighValue);
-        setupSlider(snakeIterationsSlider, snakeIterValue);
-        setupSlider(snakeSmoothnessSlider, snakeSmoothValue);
+        setupSlider(rasterRowSpacingSlider, rasterRowSpacingValue);
+        setupSlider(rasterWhiteThresholdSlider, rasterWhiteThresholdValue);
+
+        rasterContrastBoostSlider.addEventListener('input', function () {
+            const percentage = ((this.value - this.min) / (this.max - this.min)) * 100;
+            this.style.setProperty('--value', percentage + '%');
+            rasterContrastBoostValue.textContent = (parseInt(this.value, 10) / 10).toFixed(1);
+            if (uploadedImage) {
+                processImage();
+            }
+        });
 
         // Handle file upload
         function handleFileUpload(event) {
@@ -175,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show/hide parameter panels
             document.getElementById('line-params').classList.add('hidden');
             document.getElementById('canny-params').classList.add('hidden');
-            document.getElementById('snake-params').classList.add('hidden');
+            document.getElementById('raster-params').classList.add('hidden');
             document.getElementById(`${mode}-params`).classList.remove('hidden');
 
             if (uploadedImage) {
@@ -213,11 +224,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Apply processing based on mode
                 if (currentMode === 'line') {
-                    applyLineProcessing(imageData, processedData, parseInt(linePrecisionSlider.value));
+                    applyLineProcessing(imageData, processedData, parseInt(linePrecisionSlider.value, 10));
                 } else if (currentMode === 'canny') {
-                    applyCannyProcessing(imageData, processedData, parseInt(cannyLowSlider.value), parseInt(cannyHighSlider.value));
-                } else if (currentMode === 'snake') {
-                    applySnakeProcessing(imageData, processedData, parseInt(snakeIterationsSlider.value), parseInt(snakeSmoothnessSlider.value));
+                    applyCannyProcessing(imageData, processedData, parseInt(cannyLowSlider.value, 10), parseInt(cannyHighSlider.value, 10));
+                } else if (currentMode === 'raster') {
+                    applyRasterProcessing(imageData, processedData, parseInt(rasterWhiteThresholdSlider.value, 10));
                 }
 
                 processedCtx.putImageData(processedData, 0, 0);
@@ -287,12 +298,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        function applySnakeProcessing(input, output, iterations, smoothness) {
-            const threshold = 255 - smoothness;
+        function applyRasterProcessing(input, output, whiteThreshold) {
+            const threshold = whiteThreshold;
 
             for (let i = 0; i < input.data.length; i += 4) {
                 const gray = (input.data[i] + input.data[i + 1] + input.data[i + 2]) / 3;
-                const value = gray > threshold ? 255 : 0;
+                const value = gray >= threshold ? 255 : 0;
 
                 output.data[i] = value;
                 output.data[i + 1] = value;
@@ -316,8 +327,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // 创建 FormData 用来发送数据
                 const formData = new FormData();
-                formData.append('image', blob);      // 发送图片
+                formData.append('image', blob);
                 formData.append('format', format);
+                formData.append('mode', currentMode);
+
+                // Common embroidery settings
+                const targetWidth = document.getElementById('target-width');
+                const minStitchLen = document.getElementById('min-stitch-len');
+                const maxStitchLen = document.getElementById('max-stitch-len');
+                formData.append('target_width_mm', targetWidth ? targetWidth.value : '100');
+                formData.append('min_stitch_len_mm', minStitchLen ? minStitchLen.value : '0.8');
+                formData.append('max_stitch_len_mm', maxStitchLen ? maxStitchLen.value : '6.0');
+
+                // Mode specific settings
+                formData.append('line_precision', linePrecisionSlider.value);
+                formData.append('canny_low', cannyLowSlider.value);
+                formData.append('canny_high', cannyHighSlider.value);
+                formData.append('raster_row_spacing', rasterRowSpacingSlider.value);
+                formData.append('raster_white_threshold', rasterWhiteThresholdSlider.value);
+                formData.append('raster_contrast_boost', (parseInt(rasterContrastBoostSlider.value, 10) / 10).toFixed(1));
+
+                const rasterMinStep = document.getElementById('raster-min-stitch');
+                const rasterMaxStep = document.getElementById('raster-max-stitch');
+                formData.append('raster_min_stitch', rasterMinStep ? rasterMinStep.value : '2');
+                formData.append('raster_max_stitch', rasterMaxStep ? rasterMaxStep.value : '12');
 
                 //  发送到后端 /api/export 路由
                 fetch('/api/export', {

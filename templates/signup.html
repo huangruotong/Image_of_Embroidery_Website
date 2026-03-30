@@ -213,26 +213,39 @@
         });
 
         // Handle signup form
-        document.getElementById('signup-form').addEventListener('submit', function(e) {
+        document.getElementById('signup-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
+
             // Validate password length
             if (password.length < 8) {
                 alert('Password must be at least 8 characters long!');
                 return;
             }
-            
-            // Show success message
-            alert('Account created successfully! Please sign in.');
-            
-            // Redirect to login page
-            setTimeout(function() {
-                window.location.href = '/login';
-            }, 500);
+
+            try {
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    alert(data.error || 'Sign up failed. Please try again.');
+                    return;
+                }
+
+                alert('Account created successfully!');
+                window.location.href = '/workspace';
+            } catch (_) {
+                alert('Network error. Please try again.');
+            }
         });
     </script>
 </body>
