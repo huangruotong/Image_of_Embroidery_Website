@@ -30,6 +30,36 @@ python app.py
 
 Open http://127.0.0.1:5000 in your browser.
 
+## Testing
+
+Automated test suite covers authentication and export endpoints.
+
+### Run All Tests
+
+```bash
+pytest
+```
+
+### Run Specific Test Suite
+
+```bash
+pytest tests/test_auth.py -v        # Run auth tests
+pytest tests/test_export.py -v      # Run export tests
+```
+
+### Run with Coverage Report
+
+```bash
+pytest --cov=. --cov-report=html
+```
+
+### Test Coverage
+
+The test suite includes:
+
+- **Authentication (9 tests)**: signup validation, password requirements, duplicate account, login success/failure, session management, logout
+- **Export (10 tests)**: parameter validation, line/canny/raster mode success, boundary values (extreme precision, threshold, spacing)
+
 ## Authentication API
 
 - `POST /api/auth/signup`: Create account with `name`, `email`, `password`

@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Workspace functionality
     (function () {
         let uploadedImage = null;
+        let uploadedFile = null;
         let currentMode = 'line';
 
         //弹窗
@@ -147,6 +148,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 showMessageModal('Error', 'Only JPG, PNG, BMP formats are supported！');
                 return;
             }
+
+            uploadedFile = file;
 
             const reader = new FileReader();
             reader.onload = function (e) {
@@ -318,71 +321,63 @@ document.addEventListener('DOMContentLoaded', function() {
             //显示处理中
             processingIndicator.classList.remove('hidden');
 
-            processedCanvas.toBlob(function (blob) {
-                if (!blob) {
-                    showMessageModal('Error', 'Failed to export image. Please try again.');
-                    processingIndicator.classList.add('hidden');
-                    return;
+            // 创建 FormData 用来发送数据
+            const formData = new FormData();
+            formData.append('image', uploadedFile, uploadedFile ? uploadedFile.name : 'upload.png');
+            formData.append('format', format);
+            formData.append('mode', currentMode);
+
+            // Common embroidery settings
+            const targetWidth = document.getElementById('target-width');
+            const minStitchLen = document.getElementById('min-stitch-len');
+            const maxStitchLen = document.getElementById('max-stitch-len');
+            formData.append('target_width_mm', targetWidth ? targetWidth.value : '100');
+            formData.append('min_stitch_len_mm', minStitchLen ? minStitchLen.value : '0.8');
+            formData.append('max_stitch_len_mm', maxStitchLen ? maxStitchLen.value : '6.0');
+
+            // Mode specific settings
+            formData.append('line_precision', linePrecisionSlider.value);
+            formData.append('canny_low', cannyLowSlider.value);
+            formData.append('canny_high', cannyHighSlider.value);
+            formData.append('raster_row_spacing', rasterRowSpacingSlider.value);
+            formData.append('raster_white_threshold', rasterWhiteThresholdSlider.value);
+            formData.append('raster_contrast_boost', (parseInt(rasterContrastBoostSlider.value, 10) / 10).toFixed(1));
+
+            const rasterMinStep = document.getElementById('raster-min-stitch');
+            const rasterMaxStep = document.getElementById('raster-max-stitch');
+            formData.append('raster_min_stitch', rasterMinStep ? rasterMinStep.value : '2');
+            formData.append('raster_max_stitch', rasterMaxStep ? rasterMaxStep.value : '12');
+
+            //  发送到后端 /api/export 路由
+            fetch('/api/export', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Export failed');
                 }
-
-                // 创建 FormData 用来发送数据
-                const formData = new FormData();
-                formData.append('image', blob);
-                formData.append('format', format);
-                formData.append('mode', currentMode);
-
-                // Common embroidery settings
-                const targetWidth = document.getElementById('target-width');
-                const minStitchLen = document.getElementById('min-stitch-len');
-                const maxStitchLen = document.getElementById('max-stitch-len');
-                formData.append('target_width_mm', targetWidth ? targetWidth.value : '100');
-                formData.append('min_stitch_len_mm', minStitchLen ? minStitchLen.value : '0.8');
-                formData.append('max_stitch_len_mm', maxStitchLen ? maxStitchLen.value : '6.0');
-
-                // Mode specific settings
-                formData.append('line_precision', linePrecisionSlider.value);
-                formData.append('canny_low', cannyLowSlider.value);
-                formData.append('canny_high', cannyHighSlider.value);
-                formData.append('raster_row_spacing', rasterRowSpacingSlider.value);
-                formData.append('raster_white_threshold', rasterWhiteThresholdSlider.value);
-                formData.append('raster_contrast_boost', (parseInt(rasterContrastBoostSlider.value, 10) / 10).toFixed(1));
-
-                const rasterMinStep = document.getElementById('raster-min-stitch');
-                const rasterMaxStep = document.getElementById('raster-max-stitch');
-                formData.append('raster_min_stitch', rasterMinStep ? rasterMinStep.value : '2');
-                formData.append('raster_max_stitch', rasterMaxStep ? rasterMaxStep.value : '12');
-
-                //  发送到后端 /api/export 路由
-                fetch('/api/export', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Export failed');
-                    }
-                    //  后端返回的是真正的刺绣格式 Blob
-                    return response.blob();
-                })
-                .then(blob => {
-                    // 下载后端生成的真正的刺绣格式文件
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `embroidery_design${format}`;  // 现在这是真的了！
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                })
-                .catch(error => {
-                    //处理错误
-                    showMessageModal('Error', 'Export failed: ' + error.message);
-                })
-                .finally(() => {
-                    processingIndicator.classList.add('hidden');
-                });
-            }, 'image/png');
+                //  后端返回的是真正的刺绣格式 Blob
+                return response.blob();
+            })
+            .then(blob => {
+                // 下载后端生成的真正的刺绣格式文件
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `embroidery_design${format}`;  // 现在这是真的了！
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                //处理错误
+                showMessageModal('Error', 'Export failed: ' + error.message);
+            })
+            .finally(() => {
+                processingIndicator.classList.add('hidden');
+            });
         };
     })();
 });

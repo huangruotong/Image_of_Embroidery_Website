@@ -41,7 +41,7 @@ def get_image(photo):
 def image_to_embroidery_canny(img, #canny边缘法，outline
                         scale=0.5, threshold1=50, threshold2=150,
                         min_stitch_mm=0.8, max_stitch_mm=6.0):
-    print("📸 正在读取图片...")
+    print("正在读取图片...")
 
     # 1. 缩放图片
     h, w = img.shape[:2]
@@ -92,7 +92,7 @@ def image_to_embroidery_canny(img, #canny边缘法，outline
 
     pattern.add_stitch_absolute(pyembroidery.END, 0, 0)
 
-    print(f"🧵 Canny 模式针数: {stitch_count}")
+    print(f"Canny 模式针数: {stitch_count}")
     return pattern
 
 
@@ -117,7 +117,7 @@ def photo_to_raster_embroidery(img, #raster法
                                max_stitch_mm=6.0,
                                max_jump_mm=8.0,
                                trim_gap_threshold=8):
-    print("📸 正在读取照片...")
+    print("正在读取照片...")
 
     # 1. 图像预处理
     img = cv2.resize(img, None, fx=scale, fy=scale)
@@ -133,7 +133,7 @@ def photo_to_raster_embroidery(img, #raster法
     scale_factor = mm_per_pixel * 10
     pattern = pyembroidery.EmbPattern()
 
-    print("🧵 正在计算 Raster 针迹...")
+    print("正在计算 Raster 针迹...")
     stitch_count = 0
     last_x, last_y = None, None
     gap_run = 0
@@ -193,17 +193,17 @@ def photo_to_raster_embroidery(img, #raster法
             stitch_gap = int(min_stitch + t * (max_stitch - min_stitch))
             i += max(stitch_gap, 1)
 
-    # 🚩 关键步骤：将图案中心移至 (0,0)，否则刺绣机可能报错
+    # 关键步骤：将图案中心移至 (0,0)，否则刺绣机可能报错
     pattern.move_center_to_origin()
     pattern.add_command(pyembroidery.END)
 
-    print(f"✅ 总针数: {stitch_count}")
+    print(f"总针数: {stitch_count}")
 
     # 2. 导出文件
     return pattern, gray
 
 '''
-    print("🖼️ 正在生成预览图...") # 3. 生成更直观的预览图
+    print("正在生成预览图...") # 3. 生成更直观的预览图
     preview = np.ones((h, w), dtype=np.uint8) * 255
     # 由于做了平移，预览图需要重新计算坐标映射，这里简化处理
     for i in range(len(pattern.stitches) - 1):
@@ -215,7 +215,7 @@ def photo_to_raster_embroidery(img, #raster法
             cv2.line(preview, pt1, pt2, (0), 1)
 
     cv2.imwrite(f"{output_path}_preview.png", preview)
-    print(f"🎉 处理完成！")'''
+    print(f"处理完成！")'''
 
 '''
 # ── 修正：把主程序移出函数 ──────────────────
@@ -254,7 +254,7 @@ def photo_to_line_embroidery(img, #line法
     scale_factor = mm_per_pixel * 10
     pattern = pyembroidery.EmbPattern()
 
-    print("🧵 正在计算 Line 针迹...")
+    print("正在计算 Line 针迹...")
     stitch_count = 0
     last_x, last_y = None, None
     y = 0
@@ -326,13 +326,13 @@ def photo_to_line_embroidery(img, #line法
         row_index += 1
 
     pattern.add_command(pyembroidery.END)
-    print(f"✅ 总针数: {stitch_count}")
+    print(f"总针数: {stitch_count}")
 
-    print("💾 正在导出...")
+    print("正在导出...")
     return pattern, gray
 
 ''' #生成预览图
-    print("🖼️  正在生成预览图...")
+    print("  正在生成预览图...")
     preview = np.ones((h, w), dtype=np.uint8) * 255
     for i in range(len(pattern.stitches) - 1):
         s1 = pattern.stitches[i]
@@ -345,7 +345,7 @@ def photo_to_line_embroidery(img, #line法
             cv2.line(preview, (x1, y1), (x2, y2), 0, 1)
 
     cv2.imwrite(f"{output_path}_preview.png", preview)
-    print(f"🎉 完成！输出文件：{output_path}.dst")'''
+    print(f"完成！输出文件：{output_path}.dst")'''
 
 #生成浏览图
 def check_preview(pattern, canvas_size=(400,400)):
