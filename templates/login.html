@@ -92,11 +92,16 @@
                     <label for="email" class="block text-gray-700 mb-2">Email</label>
                     <input
                         id="email"
-                        type="email"
-                        required
+                        type="text"
                         class="w-full px-4 py-3 border-2 border-black rounded-lg"
                         style="background-color: #E8E8E8;"
                     />
+                    <p id="login-email-error" class="hidden mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span id="login-email-error-text">Please fill in your email.</span>
+                    </p>
                 </div>
 
                 <div>
@@ -105,7 +110,6 @@
                         <input
                             id="password"
                             type="password"
-                            required
                             class="w-full px-4 py-3 border-2 border-black rounded-lg pr-12"
                             style="background-color: #E8E8E8;"
                         />
@@ -120,6 +124,12 @@
                             </svg>
                         </button>
                     </div>
+                    <p id="login-error" class="hidden mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span id="login-error-text">Incorrect email or password.</span>
+                    </p>
                 </div>
 
                 <div class="flex items-center justify-between">
@@ -191,6 +201,19 @@
 
     <!-- Scripts -->
     <script>
+        function showLoginError(id, message) {
+            const errorEl = document.getElementById(id);
+            const errorText = document.getElementById(id + '-text');
+            if (!errorEl || !errorText) return;
+            errorText.textContent = message;
+            errorEl.classList.remove('hidden');
+        }
+
+        function hideLoginError(id) {
+            const errorEl = document.getElementById(id);
+            if (errorEl) errorEl.classList.add('hidden');
+        }
+
         // Toggle password visibility
         document.getElementById('toggle-password').addEventListener('click', function() {
             const passwordInput = document.getElementById('password');
@@ -205,12 +228,35 @@
             }
         });
 
+        // Hide errors when user starts retyping
+        document.getElementById('email').addEventListener('input', function() { hideLoginError('login-email-error'); hideLoginError('login-error'); });
+        document.getElementById('password').addEventListener('input', function() { hideLoginError('login-error'); });
+
         // Handle login form
         document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+
+            // Validate fields
+            let hasError = false;
+            if (!email) {
+                showLoginError('login-email-error', 'Please fill in your email.');
+                hasError = true;
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                showLoginError('login-email-error', 'Please enter a valid email address.');
+                hasError = true;
+            } else {
+                hideLoginError('login-email-error');
+            }
+            if (!password) {
+                showLoginError('login-error', 'Please fill in your password.');
+                hasError = true;
+            } else {
+                hideLoginError('login-error');
+            }
+            if (hasError) return;
 
             try {
                 const response = await fetch('/api/auth/login', {
@@ -223,14 +269,14 @@
 
                 const data = await response.json();
                 if (!response.ok) {
-                    alert(data.error || 'Login failed. Please try again.');
+                    showLoginError('login-error', 'Incorrect email or password.');
                     return;
                 }
 
                 // Redirect to workspace after successful login.
                 window.location.href = '/workspace';
             } catch (_) {
-                alert('Network error. Please try again.');
+                showLoginError('login-error', 'Network error. Please try again.');
             }
         });
     </script>

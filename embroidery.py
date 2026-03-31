@@ -325,7 +325,7 @@ def photo_to_line_embroidery(img, #line法
         y += next_spacing
         row_index += 1
 
-    pattern.add_command(pyembroidery.END)
+    pattern.add_command(pyembroidery.END) 
     print(f"总针数: {stitch_count}")
 
     print("正在导出...")
