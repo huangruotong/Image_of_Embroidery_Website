@@ -195,12 +195,13 @@
         </div>
     </footer>
 
-     <!--  引入 auth.js -->
+    <!-- 共享认证脚本：负责导航登录态与登出菜单 / Auth Script -->
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
 
 
     <!-- Scripts -->
     <script>
+        // 显示指定错误提示块，并写入提示文案。
         function showLoginError(id, message) {
             const errorEl = document.getElementById(id);
             const errorText = document.getElementById(id + '-text');
@@ -209,12 +210,13 @@
             errorEl.classList.remove('hidden');
         }
 
+        // 隐藏指定错误提示块。
         function hideLoginError(id) {
             const errorEl = document.getElementById(id);
             if (errorEl) errorEl.classList.add('hidden');
         }
 
-        // Toggle password visibility
+        // 点击眼睛图标切换密码明文/密文显示。
         document.getElementById('toggle-password').addEventListener('click', function() {
             const passwordInput = document.getElementById('password');
             const eyeIcon = document.getElementById('eye-icon');
@@ -228,18 +230,18 @@
             }
         });
 
-        // Hide errors when user starts retyping
+        // 用户重新输入时，实时清理旧错误提示，避免误导。
         document.getElementById('email').addEventListener('input', function() { hideLoginError('login-email-error'); hideLoginError('login-error'); });
         document.getElementById('password').addEventListener('input', function() { hideLoginError('login-error'); });
 
-        // Handle login form
+        // 提交登录：先前端校验，再请求后端接口；成功后跳转 workspace。
         document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
 
-            // Validate fields
+            // 基础校验：邮箱非空+格式合法，密码非空。
             let hasError = false;
             if (!email) {
                 showLoginError('login-email-error', 'Please fill in your email.');
@@ -273,9 +275,10 @@
                     return;
                 }
 
-                // Redirect to workspace after successful login.
+                // 登录成功后进入工作台页面。
                 window.location.href = '/workspace';
             } catch (_) {
+                // 网络异常时提示用户稍后重试。
                 showLoginError('login-error', 'Network error. Please try again.');
             }
         });

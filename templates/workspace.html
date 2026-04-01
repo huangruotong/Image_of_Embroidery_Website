@@ -114,7 +114,7 @@
         </div>
     </div>
 
-    <!-- Navigation (same as index.html) -->
+    <!-- Navigation  -->
     <nav class="primary-bg text-white shadow-md">
         <div class="w-full px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
@@ -196,7 +196,7 @@
                         </div>
                     </div>
 
-                    <!-- Algorithm Mode Card -->
+                    <!-- Mode Card -->
                     <div id="mode-card" class="bg-white rounded-lg p-6 border-2 hidden">
                         <h3 class="font-semibold mb-4 primary-text">
                             2. Select Algorithm Mode
@@ -215,6 +215,11 @@
                                 <input type="range" class="slider" id="line-precision" min="0" max="100" value="50" style="--value: 50%">
                                 <p class="text-xs text-gray-500 mt-1">Current value: <span id="line-value">50</span></p>
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Contrast Boost</label>
+                                <input type="range" class="slider" id="line-contrast-boost" min="1" max="30" value="18" style="--value: 58.6%">
+                                <p class="text-xs text-gray-500 mt-1">Current value: <span id="line-contrast-boost-value">1.8</span></p>
+                            </div>
                             <p class="text-sm text-gray-600">
                                 Best for sketches, signatures, simple line art
                             </p>
@@ -231,6 +236,11 @@
                                 <label class="block text-sm font-medium mb-2">Threshold High</label>
                                 <input type="range" class="slider" id="canny-high" min="0" max="255" value="150" style="--value: 58.8%">
                                 <p class="text-xs text-gray-500 mt-1">Current value: <span id="canny-high-value">150</span></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Contrast Boost</label>
+                                <input type="range" class="slider" id="canny-contrast-boost" min="1" max="30" value="18" style="--value: 58.6%">
+                                <p class="text-xs text-gray-500 mt-1">Current value: <span id="canny-contrast-boost-value">1.8</span></p>
                             </div>
                             <p class="text-sm text-gray-600">
                                 Ideal for complex objects, photos, artistic images
@@ -301,25 +311,25 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
-                                Export .PES (Brother)
+                                Export .PES
                             </button>
                             <button class="w-full primary-bg text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-start gap-2" onclick="exportFile('.dst')">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
-                                Export .DST (Tajima)
+                                Export .DST
                             </button>
                             <button class="w-full primary-bg text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-start gap-2" onclick="exportFile('.jef')">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
-                                Export .JEF (Janome)
+                                Export .JEF
                             </button>
                             <button class="w-full primary-bg text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-start gap-2" onclick="exportFile('.exp')">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
-                                Export .EXP (Bernina)
+                                Export .EXP
                             </button>
                         </div>
                     </div>
@@ -341,6 +351,7 @@
                             </div>
                         </div>
 
+                        <!-- 空状态：还未上传图片时显示占位提示 / Empty State -->
                         <div id="preview-empty" class="flex items-center justify-center h-[600px] bg-gray-50 rounded-lg">
                             <div class="text-center">
                                 <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,6 +361,7 @@
                             </div>
                         </div>
 
+                        <!-- 预览状态：上传成功后显示双画布 / Preview State -->
                         <div id="preview-canvases" class="hidden grid md:grid-cols-2 gap-6">
                             <div>
                                 <p class="text-sm text-gray-600 mb-2">Original Image</p>
