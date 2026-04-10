@@ -1,76 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - Embroidery Design</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            background-color: #F5F7FA;
-        }
-        .primary-bg {
-            background-color: #1A237E;
-        }
-        .primary-text {
-            color: #1A237E;
-        }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col">
-    <!-- Navigation Bar -->
-    <nav class="primary-bg text-white shadow-md">
-        <div class="w-full px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Left - Logo -->
-                <a href="{{ url_for('login') }}" class="flex items-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path>
-                    </svg>
-                    <span class="text-xl font-semibold">Embroidery Design</span>
-                </a>
+{% extends "base.html" %}
+{% set auth_nav_active = true %}
+{% set brand_href = url_for('login') %}
 
-                <!-- Right - Navigation Links -->
-                <div class="flex items-center gap-6">
-                    <a href="{{ url_for('index') }}" class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
-                        Home
-                    </a>
-                    <a href="{{ url_for('workspace') }}" class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
-                        Workspace
-                    </a>
-                    <a href="{{ url_for('guide') }}" class="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
-                        Instructions
-                    </a>
+{% block title %}Sign Up - Embroidery Design{% endblock %}
 
-                    <!-- User Login/Profile -->
-                    <div id="auth-section">
-                        <a href="{{ url_for('login') }}" id="login-link" class="px-3 py-2 rounded-lg bg-white/20 transition-colors">
-                            Login
-                        </a>
-                        <div id="user-menu" class="relative hidden">
-                            <button id="user-button" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                            </button>
-                            <div id="dropdown" class="hidden absolute right-0 mt-2 w-36 bg-white rounded-lg shadow-lg py-2 z-20">
-                                <button id="logout-button" class="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                                    </svg>
-                                    Logout
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <div class="flex-1 flex">
-    <!-- Left Side - Image -->
+{% block content %}
+<div class="flex-1 flex">
     <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img 
             src="{{ url_for('static', filename='images/sign_up.jpg') }}"
@@ -79,8 +14,7 @@
         />
     </div>
 
-    <!-- Right Side - Sign Up Form -->
-    <div class="w-full lg:w-1/2 flex items-center justify-center p-8 overflow-y-auto min-h-screen" style="background-color: #F5F7FA;">
+    <div class="auth-panel-bg w-full lg:w-1/2 flex items-center justify-center p-8 overflow-y-auto min-h-screen">
         <div class="w-full max-w-md">
             <h1 class="text-4xl font-bold mb-8 primary-text">
                 Create Account
@@ -93,7 +27,6 @@
                 </a>
             </p>
 
-            <!-- 注册表单：前端先校验，再调用 /api/auth/signup / Sign Up Form -->
             <form id="signup-form" class="space-y-6">
                 <div>
                     <label for="name" class="block text-gray-700 mb-2">Name</label>
@@ -155,6 +88,10 @@
                     </p>
                 </div>
 
+                <p id="signup-form-error" class="hidden text-sm text-red-600 border border-red-200 bg-red-50 rounded-lg px-4 py-3">
+                    <span id="signup-form-error-text">Sign up failed. Please try again.</span>
+                </p>
+
                 <button 
                     type="submit" 
                     class="w-full primary-bg text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity font-medium"
@@ -167,7 +104,7 @@
                         <div class="w-full border-t border-gray-300"></div>
                     </div>
                     <div class="relative flex justify-center text-sm">
-                        <span class="px-2 text-gray-500" style="background-color: #F5F7FA;">OR</span>
+                        <span class="auth-divider-label px-2 text-gray-500">OR</span>
                     </div>
                 </div>
 
@@ -196,149 +133,185 @@
             </form>
         </div>
     </div>
-    </div>
+</div>
+{% endblock %}
 
-    <!-- Footer -->
-    <footer class="primary-bg text-white py-6 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 text-center">
-            <p class="text-sm opacity-80">
-                © 2026 Embroidery Design
-            </p>
-        </div>
-    </footer>
+{% block scripts %}
+<script>
+    //显示表单级注册错误提示
+    function showSignupFormError(message) {
+        const errorEl = document.getElementById('signup-form-error');
+        const errorText = document.getElementById('signup-form-error-text');
+        if (!errorEl || !errorText) return;
+        errorText.textContent = message;
+        errorEl.classList.remove('hidden');
+    }
 
-    <!-- auth.js -->
-    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    function hideSignupFormError() {
+        const errorEl = document.getElementById('signup-form-error');
+        if (errorEl) errorEl.classList.add('hidden');
+    }
 
-    <!-- Scripts -->
-    <script>
-        // 显示弹窗并注入消息文本。
-        function showMessageModal(title, message) {
-            const modal = document.getElementById('test-error-modal');
-            const msgEl = document.getElementById('test-error-message');
-            const okBtn = document.getElementById('test-error-ok');
-            const closeBtn = document.getElementById('test-error-close');
+    function showFieldError(id, message) {
+        const errorEl = document.getElementById(id);
+        const errorText = document.getElementById(id + '-text');
+        if (!errorEl || !errorText) return;
+        errorText.textContent = message;
+        errorEl.classList.remove('hidden');
+    }
 
-            if (!modal || !okBtn || !msgEl) return;
+    //隐藏字段级校验错误
+    function hideFieldError(id) {
+        const errorEl = document.getElementById(id);
+        if (errorEl) errorEl.classList.add('hidden');
+    }
 
-            msgEl.textContent = message;
-            modal.classList.remove('hidden');
+    function clearSignupFieldErrors() {
+        hideFieldError('signup-name-error');
+        hideFieldError('signup-email-error');
+        hidePasswordError();
+    }
 
-            const hide = () => modal.classList.add('hidden');
-            okBtn.onclick = hide;
-            if (closeBtn) closeBtn.onclick = hide;
-        }
+    //用户输入姓名或邮箱时清理旧错误
+    document.getElementById('name').addEventListener('input', function() {
+        hideFieldError('signup-name-error');
+        hideSignupFormError();
+    });
+    document.getElementById('email').addEventListener('input', function() {
+        hideFieldError('signup-email-error');
+        hideSignupFormError();
+    });
 
-        // 显示通用字段错误（name/email）。
-        function showFieldError(id, message) {
-            const errorEl = document.getElementById(id);
-            const errorText = document.getElementById(id + '-text');
-            if (!errorEl || !errorText) return;
-            errorText.textContent = message;
-            errorEl.classList.remove('hidden');
-        }
+    //显示密码相关错误提示
+    function showPasswordError(message) {
+        const errorEl = document.getElementById('signup-password-error');
+        const errorText = document.getElementById('signup-password-error-text');
+        if (!errorEl || !errorText) return;
+        errorText.textContent = message;
+        errorEl.classList.remove('hidden');
+    }
 
-        // 隐藏通用字段错误（name/email）。
-        function hideFieldError(id) {
-            const errorEl = document.getElementById(id);
-            if (errorEl) errorEl.classList.add('hidden');
-        }
+    //隐藏密码相关错误提示
+    function hidePasswordError() {
+        const errorEl = document.getElementById('signup-password-error');
+        if (errorEl) errorEl.classList.add('hidden');
+    }
 
-        // 用户重输时即时隐藏 name/email 错误提示。
-        document.getElementById('name').addEventListener('input', function() { hideFieldError('signup-name-error'); });
-        document.getElementById('email').addEventListener('input', function() { hideFieldError('signup-email-error'); });
-
-        // 显示密码相关错误。
-        function showPasswordError(message) {
-            const errorEl = document.getElementById('signup-password-error');
-            const errorText = document.getElementById('signup-password-error-text');
-            if (!errorEl || !errorText) return;
-            errorText.textContent = message;
-            errorEl.classList.remove('hidden');
-        }
-
-        // 隐藏密码相关错误。
-        function hidePasswordError() {
-            const errorEl = document.getElementById('signup-password-error');
-            if (errorEl) errorEl.classList.add('hidden');
-        }
-
-        // 用户重输密码时隐藏旧错误。
-        document.getElementById('password').addEventListener('input', hidePasswordError);
-
-        // 切换密码明文/密文显示。
-        document.getElementById('toggle-password').addEventListener('click', function() {
-            const passwordInput = document.getElementById('password');
-            const eyeIcon = document.getElementById('eye-icon');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>';
-            } else {
-                passwordInput.type = 'password';
-                eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>';
-            }
-        });
-
-        // 提交注册：前端校验通过后请求后端创建账户。
-        document.getElementById('signup-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const name = document.getElementById('name').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-
-            // 校验规则：姓名非空，邮箱非空且格式合法，密码非空且至少 8 位。
-            let hasError = false;
-            if (!name) {
+    function applySignupServerFieldErrors(message, values) {
+        if (message === 'Name, email and password are required') {
+            let handled = false;
+            if (!values.name) {
                 showFieldError('signup-name-error', 'Please fill in your name.');
-                hasError = true;
-            } else {
-                hideFieldError('signup-name-error');
+                handled = true;
             }
-            if (!email) {
+            if (!values.email) {
                 showFieldError('signup-email-error', 'Please fill in your email.');
-                hasError = true;
-            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                showFieldError('signup-email-error', 'Please enter a valid email address.');
-                hasError = true;
-            } else {
-                hideFieldError('signup-email-error');
+                handled = true;
             }
-            if (!password) {
+            if (!values.password) {
                 showPasswordError('Please fill in your password.');
-                hasError = true;
-            } else if (password.length < 8) {
-                showPasswordError('Password must be at least 8 characters long.');
-                hasError = true;
-            } else {
-                hidePasswordError();
+                handled = true;
             }
-            if (hasError) return;
+            return handled;
+        }
 
-            try {
-                const response = await fetch('/api/auth/signup', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ name, email, password })
-                });
+        if (message === 'Password must be at least 8 characters') {
+            showPasswordError('Password must be at least 8 characters long.');
+            return true;
+        }
 
-                const data = await response.json();
-                if (!response.ok) {
-                    // 后端拒绝注册时给出统一失败提示。
-                    showMessageModal('Error', 'Sign up failed. Please try again.');
+        if (message === 'Email is already registered') {
+            showFieldError('signup-email-error', 'Email is already registered.');
+            return true;
+        }
+
+        return false;
+    }
+
+    //用户输入密码时清理旧错误
+    document.getElementById('password').addEventListener('input', function() {
+        hidePasswordError();
+        hideSignupFormError();
+    });
+
+    //点击眼睛图标切换密码显示状态
+    document.getElementById('toggle-password').addEventListener('click', function() {
+        const passwordInput = document.getElementById('password');
+        const eyeIcon = document.getElementById('eye-icon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>';
+        } else {
+            passwordInput.type = 'password';
+            eyeIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>';
+        }
+    });
+
+    //先做前端校验，再提交注册请求
+    document.getElementById('signup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        
+        //要求姓名和邮箱不为空、邮箱格式合法且密码至少8位
+        let hasError = false;
+        if (!name) {
+            showFieldError('signup-name-error', 'Please fill in your name.');
+            hasError = true;
+        } else {
+            hideFieldError('signup-name-error');
+        }
+        if (!email) {
+            showFieldError('signup-email-error', 'Please fill in your email.');
+            hasError = true;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showFieldError('signup-email-error', 'Please enter a valid email address.');
+            hasError = true;
+        } else {
+            hideFieldError('signup-email-error');
+        }
+        if (!password) {
+            showPasswordError('Please fill in your password.');
+            hasError = true;
+        } else if (password.length < 8) {
+            showPasswordError('Password must be at least 8 characters long.');
+            hasError = true;
+        } else {
+            hidePasswordError();
+        }
+        if (hasError) return;
+
+        try {
+            const response = await fetch('/api/auth/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, password })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                clearSignupFieldErrors();
+                hideSignupFormError();
+                if (applySignupServerFieldErrors(data.error, { name, email, password })) {
                     return;
                 }
-
-                // 注册成功后进入工作台。
-                window.location.href = '/workspace';
-            } catch (_) {
-                // 网络异常时提示用户稍后再试。
-                showMessageModal('Error', 'Network error. Please try again.');
+                //后端返回未知错误时显示通用失败提示
+                showSignupFormError('Sign up failed. Please try again.');
+                return;
             }
-        });
-    </script>
-</body>
-</html>
+
+            //注册成功后跳转到工作台
+            window.location.href = '/workspace';
+        } catch (_) {
+            //请求失败时提示用户重试
+            hideSignupFormError();
+            showSignupFormError('Network error. Please try again.');
+        }
+    });
+</script>
+{% endblock %}

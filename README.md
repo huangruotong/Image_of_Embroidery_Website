@@ -1,14 +1,26 @@
-# Image of Embroidery Website
+# Embroidery Design
 
-Upload an image, preview processing effects in the workspace, and export machine-ready embroidery files.
+A Flask app for turning images into embroidery patterns.
+
+You can upload an image, choose a mode to generate embroidery files.
 
 ## Features
 
-- Three processing modes: line, canny, raster
-- Real-time preview in browser
-- Export formats: .pes, .dst, .jef, .exp
-- Backend authentication (sign up, login, logout, session check)
-- SQLite user storage with password hashing...
+- Upload `JPG`, `PNG`, or `BMP` images up to 5 MB
+- Preview the result in the browser before exporting
+- Three processing modes: 'line', 'canny', 'raster'
+- Adjust width, stitch length, contrast, and details settings
+- Export machine embroidery formats: `.pes`, `.dst`, `.jef`, `.exp`
+- Download the current preview as `.png`
+- Store users in SQLite with hashed passwords
+
+## Usage
+1.Upload a JPG, PNG, or BMP image
+2.Choose a mode: line, canny, or raster
+3.Adjust detail settings for the image
+4.View the preview results in the browser
+5.Save the current preview as .png
+6.Export the design as an embroidery file
 
 ## Requirements
 
@@ -16,9 +28,9 @@ Upload an image, preview processing effects in the workspace, and export machine
 
 ## Installation
 
-```bash
+```powershell
 python -m venv .venv
-source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
@@ -30,53 +42,58 @@ python app.py
 
 Open http://127.0.0.1:5000 in your browser.
 
-## Testing
+## Tests
 
-Automated test suite covers authentication and export endpoints.
+The project includes automated tests for the main backend flows and user security.
 
-### Run All Tests
+Run the full test suite:
 
-```bash
+```powershell
 pytest
 ```
 
-### Run Specific Test Suite
+Run a specific test module:
 
-```bash
-pytest tests/test_auth.py -v        # Run auth tests
-pytest tests/test_export.py -v      # Run export tests
+```powershell
+pytest tests/test_auth.py -v
+pytest tests/test_export.py -v
 ```
 
-### Run with Coverage Report
+Run tests with coverage:
 
-```bash
+```powershell
 pytest --cov=. --cov-report=html
 ```
 
-### Test Coverage
+The current tests cover:
 
-The test suite includes:
+- authentication flows
+- database path resolution
+- preview and export behavior
+- parameter boundary handling
+- hoop-limit checks
+- preview rendering behavior
 
-- **Authentication (9 tests)**: signup validation, password requirements, duplicate account, login success/failure, session management, logout
-- **Export (10 tests)**: parameter validation, line/canny/raster mode success, boundary values (extreme precision, threshold, spacing)
+## API Endpoints
 
-## Authentication API
+Authentication:
 
-- `POST /api/auth/signup`: Create account with `name`, `email`, `password`
-- `POST /api/auth/login`: Login with `email`, `password`
-- `POST /api/auth/logout`: Logout current session
-- `GET /api/auth/me`: Get current session status
+- `POST /api/auth/signup`: create an account with `name`, `email`, and `password`
+- `POST /api/auth/login`: log in with `email` and `password`
+- `POST /api/auth/logout`: log out the current session
+- `GET /api/auth/me`: get the current session status
 
-## Notes
+Workspace:
 
-- A local `users.db` file is created automatically on first run.
-- For production, set `SECRET_KEY` as an environment variable before startup.
+- `POST /api/preview`: generate a preview for the uploaded image and current settings
+- `POST /api/export`: export the uploaded image as an embroidery file
 
 ## Project Structure
 
-- app.py: Flask routes and export API
-- users.db: SQLite database for user accounts (auto generated)
-- embroidery.py: image to embroidery conversion logic
-- templates/: page templates
-- static/js/: auth and workspace scripts
-- static/images/: UI images
+- `app.py`: Flask app entry, routes, auth, preview, and export logic
+- `embroidery.py`: image processing and embroidery pattern generation
+- `templates/`: page templates for home, auth, guide, and workspace views
+- `static/js/`: auth and workspace scripts
+- `static/css/`: styles 
+- `static/images/`: UI images and sample assets
+- `tests/`: automated tests
