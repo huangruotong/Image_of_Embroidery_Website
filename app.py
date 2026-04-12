@@ -88,20 +88,31 @@ DEFAULT_LINE_SETTINGS = {
     'line_contrast_boost': 1.8,
 }
 DEFAULT_CANNY_SETTINGS = {
-    'canny_low': 50,
-    'canny_high': 150,
-    'canny_contrast_boost': 1.8,
+    'canny_low': 90,
+    'canny_high': 210,
+    'canny_contrast_boost': 1.0,
 }
 DEFAULT_RASTER_SETTINGS = {
-    'raster_row_spacing': 4,
-    'raster_min_stitch': 2,
-    'raster_max_stitch': 12,
+    'raster_row_spacing': 6,
+    'raster_min_stitch': 3,
+    'raster_max_stitch': 10,
     'raster_white_threshold': 220,
-    'raster_contrast_boost': 1.8,
+    'raster_contrast_boost': 1.4,
 }
+MODE_PROCESSING_PX_PER_MM = {
+    'line': 5.0,
+    'raster': 4.0,
+    'canny': 4.0,
+}
+MODE_DENSITY_LIMITS = {
+    'line': 0.50,
+    'raster': 0.65,
+    'canny': 0.55,
+}
+MAX_UNTRIMMED_JUMP_RUN_MM = 8.0
 
 #限制上传文件大小为5mb
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+# app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 
 ALLOWED_EXPORT_FORMATS = {'.pes', '.dst', '.jef', '.exp'}
 ALLOWED_MODES = {'line', 'canny', 'raster'}
@@ -212,6 +223,17 @@ def parse_float(form, name, default, min_value=None, max_value=None):
     if max_value is not None:
         value = min(max_value, value)
     return value
+
+
+def resolve_processing_geometry(mode, source_width_px, target_width_mm):
+    target_px_per_mm = MODE_PROCESSING_PX_PER_MM[mode]
+    processed_width_px = max(
+        1,
+        min(source_width_px, int(round(target_width_mm * target_px_per_mm))),
+    )
+    processing_scale = processed_width_px / max(source_width_px, 1)
+    processing_mm_per_pixel = target_width_mm / processed_width_px
+    return processing_scale, processing_mm_per_pixel
 
 
 def resolve_embroidery_settings(form):
@@ -358,11 +380,15 @@ def build_embroidery_pattern(img, form, return_details=False):
     settings = resolve_embroidery_settings(form)
     target_width_mm = settings['target_width_mm']
     source_width_px = max(img.shape[1], 1)
-    mm_per_pixel = target_width_mm / source_width_px
 
     min_stitch_len_mm = settings['min_stitch_len_mm']
     max_stitch_len_mm = settings['max_stitch_len_mm']
     mode = settings['mode']
+    processing_scale, processing_mm_per_pixel = resolve_processing_geometry(
+        mode,
+        source_width_px,
+        target_width_mm,
+    )
 
     if mode == 'line':
         line_precision = settings['line_precision']
@@ -372,9 +398,9 @@ def build_embroidery_pattern(img, form, return_details=False):
         line_white_threshold = int(245 - line_precision * 0.6)
         pattern = photo_to_line_embroidery(
             img,
-            scale=1.0,
+            scale=processing_scale,
             contrast_boost=line_contrast_boost,
-            mm_per_pixel=mm_per_pixel,
+            mm_per_pixel=processing_mm_per_pixel,
             min_spacing=min_spacing,
             max_spacing=max_spacing,
             white_threshold=line_white_threshold,
@@ -384,9 +410,9 @@ def build_embroidery_pattern(img, form, return_details=False):
     elif mode == 'raster':
         pattern = photo_to_raster_embroidery(
             img,
-            scale=1.0,
+            scale=processing_scale,
             contrast_boost=settings['raster_contrast_boost'],
-            mm_per_pixel=mm_per_pixel,
+            mm_per_pixel=processing_mm_per_pixel,
             row_spacing=settings['raster_row_spacing'],
             min_stitch=settings['raster_min_stitch'],
             max_stitch=settings['raster_max_stitch'],
@@ -397,13 +423,13 @@ def build_embroidery_pattern(img, form, return_details=False):
     else:
         pattern = image_to_embroidery_canny(
             img,
-            scale=1.0,
+            scale=processing_scale,
             threshold1=settings['canny_low'],
             threshold2=settings['canny_high'],
             contrast_boost=settings['canny_contrast_boost'],
             min_stitch_mm=min_stitch_len_mm,
             max_stitch_mm=max_stitch_len_mm,
-            mm_per_pixel=mm_per_pixel,
+            mm_per_pixel=processing_mm_per_pixel,
         )
 
     if not return_details:
@@ -430,6 +456,12 @@ def get_export_blocking_error(pattern, settings):
         )
     if metrics['stitch_count'] > 60000:
         return 'Stitch count is too high for a safe first-pass export.'
+    if metrics['max_untrimmed_jump_run_length_mm'] > MAX_UNTRIMMED_JUMP_RUN_MM:
+        return 'Untrimmed jump travel is too long for a safe first-pass export.'
+
+    density_limit = MODE_DENSITY_LIMITS.get(settings['mode'])
+    if density_limit is not None and metrics['stitch_density_per_mm2'] > density_limit:
+        return 'Stitch density is too high for a safe first-pass export.'
 
     return None
 

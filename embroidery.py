@@ -8,6 +8,11 @@ DEFAULT_PREVIEW_SIZE = (400, 400)
 PREVIEW_MARGIN = 20
 MAX_STITCHES_CANNY = 80000
 MAX_STITCHES_LINE_RASTER = 120000
+DEFAULT_TRIM_JUMP_MM = 4.0
+PREPROCESS_MEDIAN_BLUR_SIZE = 3
+BACKGROUND_CLAMP_THRESHOLD = 247
+MIN_LINE_SEGMENT_MM = 1.5
+MIN_RASTER_SEGMENT_MM = 2.0
 
 #把上传图片字节流解码为BGR图像
 def get_image(photo):
@@ -30,6 +35,7 @@ def image_to_embroidery_canny(
     max_stitch_mm=6.0,
     mm_per_pixel=0.1,
     max_jump_mm=8.0,
+    trim_jump_mm=DEFAULT_TRIM_JUMP_MM,
 ):
     print("Building Canny embroidery pattern...")  #输出当前处理模式
     max_stitches = MAX_STITCHES_CANNY  #最大针数上限
@@ -43,11 +49,12 @@ def image_to_embroidery_canny(
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)  #从边缘图提取轮廓
     contours = [c for c in contours if len(c) >= 2 and cv2.contourArea(c) >= 2.0]  #过滤掉无效小轮廓
 
-    scale_factor, min_units, max_units, max_jump_units = _resolve_stitch_units(
+    scale_factor, min_units, max_units, max_jump_units, trim_jump_units = _resolve_stitch_units(
         mm_per_pixel,
         min_stitch_mm,
         max_stitch_mm,
         max_jump_mm,
+        trim_jump_mm,
     )
 
     pattern, stats = _build_pattern_from_segments(
@@ -55,7 +62,9 @@ def image_to_embroidery_canny(
         min_units=min_units,  #最小针长
         max_units=max_units,  #最大针长
         max_jump_units=max_jump_units,  #最大跳针长度
+        trim_jump_units=trim_jump_units,  #更保守的剪线触发长度
         max_stitches=max_stitches,  #最大允许针数
+        allow_segment_reverse=True,
     )
 
     if stats["stitch_count"] >= max_stitches:
@@ -82,18 +91,21 @@ def photo_to_raster_embroidery(
     min_stitch_mm=0.8,
     max_stitch_mm=6.0,
     max_jump_mm=8.0,
+    trim_jump_mm=DEFAULT_TRIM_JUMP_MM,
 ):
     print("Building Raster embroidery pattern...")  
     max_stitches = MAX_STITCHES_LINE_RASTER  #最大针数上限
 
     gray = _prepare_gray_image(img, scale=scale, contrast_boost=contrast_boost)  #预处理灰度图
 
-    scale_factor, min_units, max_units, max_jump_units = _resolve_stitch_units(
+    scale_factor, min_units, max_units, max_jump_units, trim_jump_units = _resolve_stitch_units(
         mm_per_pixel,
         min_stitch_mm,
         max_stitch_mm,
         max_jump_mm,
+        trim_jump_mm,
     )
+    min_segment_length_units = max(min_units, MIN_RASTER_SEGMENT_MM * 10.0)
 
     pattern, stats = _build_pattern_from_segments(
         _collect_raster_segments(
@@ -103,11 +115,14 @@ def photo_to_raster_embroidery(
             min_stitch,  #最小像素步长
             max_stitch,  #最大像素步长
             white_threshold,  #背景阈值
+            min_segment_length_units,  #过滤掉过短的小碎段
         ),
         min_units=min_units,  #最小针长
         max_units=max_units,  #最大针长
         max_jump_units=max_jump_units,  #最大跳针长度
+        trim_jump_units=trim_jump_units,  #更保守的剪线触发长度
         max_stitches=max_stitches,  #最大允许针数
+        allow_segment_reverse=False,
     )
 
     if stats["stitch_count"] >= max_stitches:
@@ -133,18 +148,21 @@ def photo_to_line_embroidery(
     min_stitch_mm=0.8,
     max_stitch_mm=6.0,
     max_jump_mm=8.0,
+    trim_jump_mm=DEFAULT_TRIM_JUMP_MM,
 ):
     print("Building Line embroidery pattern...")  
     max_stitches = MAX_STITCHES_LINE_RASTER  #最大针数上限
 
     gray = _prepare_gray_image(img, scale=scale, contrast_boost=contrast_boost)  
 
-    scale_factor, min_units, max_units, max_jump_units = _resolve_stitch_units(
+    scale_factor, min_units, max_units, max_jump_units, trim_jump_units = _resolve_stitch_units(
         mm_per_pixel,
         min_stitch_mm,
         max_stitch_mm,
         max_jump_mm,
+        trim_jump_mm,
     )
+    min_segment_length_units = max(min_units, MIN_LINE_SEGMENT_MM * 10.0)
 
     pattern, stats = _build_pattern_from_segments(
         _collect_line_segments(
@@ -153,11 +171,14 @@ def photo_to_line_embroidery(
             min_spacing,  
             max_spacing,  
             white_threshold,  
+            min_segment_length_units,
         ),
         min_units=min_units,  
         max_units=max_units,  
         max_jump_units=max_jump_units,  
+        trim_jump_units=trim_jump_units,  
         max_stitches=max_stitches,  
+        allow_segment_reverse=False,
     )
 
     if stats["stitch_count"] >= max_stitches:
@@ -194,6 +215,8 @@ def pattern_path_metrics(pattern):
         "max_stitch_length_mm": 0.0,  
         "max_jump_length_mm": 0.0,  
         "max_untrimmed_jump_length_mm": 0.0,  
+        "max_untrimmed_jump_run_length_mm": 0.0,
+        "untrimmed_jump_run_count": 0,
         "design_width_mm": 0.0,  #设计宽度
         "design_height_mm": 0.0,  #设计高度
         "design_area_mm2": 0.0,  #设计面积
@@ -202,17 +225,30 @@ def pattern_path_metrics(pattern):
 
     prev_x = 0.0  #上一针的x,y
     prev_y = 0.0  
-    prev_cmd = None  #上一条针迹命令
+    thread_trimmed = False
+    current_untrimmed_jump_run_mm = 0.0
     stitch_points = []  #用于统计设计尺寸的真实落针点
+
+    def finalize_untrimmed_jump_run():
+        nonlocal current_untrimmed_jump_run_mm
+        if current_untrimmed_jump_run_mm <= 1e-6:
+            return
+        metrics["untrimmed_jump_run_count"] += 1
+        metrics["max_untrimmed_jump_run_length_mm"] = max(
+            metrics["max_untrimmed_jump_run_length_mm"],
+            current_untrimmed_jump_run_mm,
+        )
+        current_untrimmed_jump_run_mm = 0.0
 
     for x, y, cmd in pattern.stitches: #逐条遍历图案中的针迹命令
         if cmd == pyembroidery.TRIM: #剪线命令只累计次数，不参与距离统计
             metrics["trim_count"] += 1  #记录一次剪线
-            prev_cmd = cmd  #更新上一条命令
+            finalize_untrimmed_jump_run()
+            thread_trimmed = True
             continue  
 
         if cmd not in (pyembroidery.STITCH, pyembroidery.JUMP): #只处理真实落针和跳针，其他命令跳过
-            prev_cmd = cmd  #仍然更新状态，跳过不相关命令
+            finalize_untrimmed_jump_run()
             continue  
 
         dist_mm = math.hypot(x - prev_x, y - prev_y) / 10.0  #计算当前点与上一点之间的距离，勾股定理
@@ -221,19 +257,23 @@ def pattern_path_metrics(pattern):
             metrics["stitch_count"] += 1  #落针计数加一
             metrics["max_stitch_length_mm"] = max(metrics["max_stitch_length_mm"], dist_mm)  #更新最长针长
             stitch_points.append((x, y))  #保存落针点
+            finalize_untrimmed_jump_run()
+            thread_trimmed = False
 
         else:
             metrics["jump_count"] += 1  #跳针计数加一
             metrics["max_jump_length_mm"] = max(metrics["max_jump_length_mm"], dist_mm)  #更新最长跳针
-            
-            if prev_cmd != pyembroidery.TRIM: #只有上一条不是剪线时，才统计未剪线跳针长度
+
+            if not thread_trimmed:
                 metrics["max_untrimmed_jump_length_mm"] = max(
                     metrics["max_untrimmed_jump_length_mm"],  #更新跳针长度
                     dist_mm,  #因为没有剪线，所以记录最长一次有多长
                 )
+                current_untrimmed_jump_run_mm += dist_mm
 
-        prev_x, prev_y = x, y  #更新上一针坐标,命令
-        prev_cmd = cmd  
+        prev_x, prev_y = x, y  #更新上一针坐标
+
+    finalize_untrimmed_jump_run()
 
     #只有存在真实落针时，才计算设计尺寸和密度
     if stitch_points:
@@ -259,6 +299,7 @@ def _prepare_gray_image(img, scale, contrast_boost):
         img = cv2.resize(img, (new_width, new_height))  #执行缩放
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  #转成灰度图
+    gray = cv2.medianBlur(gray, PREPROCESS_MEDIAN_BLUR_SIZE)  #轻度去噪，压掉照片里的毛刺纹理
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))  #增强对比度
     gray = clahe.apply(gray)  #提升局部对比度
     gray = cv2.convertScaleAbs(gray, alpha=contrast_boost, beta=-50)  #再做一次整体对比度增强
@@ -273,14 +314,16 @@ def _prepare_gray_image(img, scale, contrast_boost):
             255,  
         ).astype(np.uint8)  #转回灰度图
 
+    gray[gray >= BACKGROUND_CLAMP_THRESHOLD] = 255  #把接近纯白的背景压回纯白，减少白底噪声
     return gray  #返回预处理后的灰度图
 
-def _resolve_stitch_units(mm_per_pixel, min_stitch_mm, max_stitch_mm, max_jump_mm):
+def _resolve_stitch_units(mm_per_pixel, min_stitch_mm, max_stitch_mm, max_jump_mm, trim_jump_mm):
     scale_factor = mm_per_pixel * 10.0
     min_units = max(1.0, min_stitch_mm * 10.0)
     max_units = max(min_units, max_stitch_mm * 10.0)
     max_jump_units = max(max_units, max_jump_mm * 10.0)
-    return scale_factor, min_units, max_units, max_jump_units
+    trim_jump_units = min(max_jump_units, max(1.0, trim_jump_mm * 10.0))
+    return scale_factor, min_units, max_units, max_jump_units, trim_jump_units
 
 def _collect_canny_segments(contours, scale_factor):
     segments = []  #保存Canny转出的路径
@@ -293,7 +336,15 @@ def _collect_canny_segments(contours, scale_factor):
             segments.append(points)
     return segments  #返回全部轮廓路径
 
-def _collect_raster_segments(gray, scale_factor, row_spacing, min_stitch, max_stitch, white_threshold):
+def _collect_raster_segments(
+    gray,
+    scale_factor,
+    row_spacing,
+    min_stitch,
+    max_stitch,
+    white_threshold,
+    min_segment_length_units,
+):
     segments = []  #保存raster模式提取出的路径
     height, width = gray.shape  #读取灰度图尺寸
 
@@ -310,7 +361,11 @@ def _collect_raster_segments(gray, scale_factor, row_spacing, min_stitch, max_st
             #足够亮的像素视为背景，当前段结束
             if pixel >= white_threshold:
                 if current_segment:
-                    segments.append(current_segment)  #保存当前路径段
+                    _append_segment_if_long_enough(
+                        segments,
+                        current_segment,
+                        min_segment_length_units,
+                    )
                     current_segment = []  #清空缓存
                 i += 1  #背景区只前进一步
                 continue  #继续扫描下一点
@@ -322,11 +377,22 @@ def _collect_raster_segments(gray, scale_factor, row_spacing, min_stitch, max_st
 
         #当前行结束后，如果还有未提交路径则保存
         if current_segment:
-            segments.append(current_segment)
+            _append_segment_if_long_enough(
+                segments,
+                current_segment,
+                min_segment_length_units,
+            )
 
     return segments  #返回全部路径
 
-def _collect_line_segments(gray, scale_factor, min_spacing, max_spacing, white_threshold):
+def _collect_line_segments(
+    gray,
+    scale_factor,
+    min_spacing,
+    max_spacing,
+    white_threshold,
+    min_segment_length_units,
+):
     segments = []  #保存line提取出的路径
     height, width = gray.shape  #读取灰度图尺寸
     y = 0  #从第一行开始扫描
@@ -352,7 +418,11 @@ def _collect_line_segments(gray, scale_factor, min_spacing, max_spacing, white_t
             pixel = int(gray[y, x])  #当前像素灰度值
             if pixel >= white_threshold:
                 if current_segment:
-                    segments.append(current_segment)  #当前线段结束，加入结果
+                    _append_segment_if_long_enough(
+                        segments,
+                        current_segment,
+                        min_segment_length_units,
+                    )
                     current_segment = []  #清空缓存
                 continue  #背景像素跳过
 
@@ -360,12 +430,23 @@ def _collect_line_segments(gray, scale_factor, min_spacing, max_spacing, white_t
 
         #当前行结束后，如有残余线段则保存
         if current_segment:
-            segments.append(current_segment)
+            _append_segment_if_long_enough(
+                segments,
+                current_segment,
+                min_segment_length_units,
+            )
 
         y += next_spacing  #跳到下一条扫描行
         row_index += 1  #行序号加一
 
     return segments  #返回全部线稿路径
+
+def _append_segment_if_long_enough(segments, current_segment, min_segment_length_units):
+    if len(current_segment) < 2:
+        return
+    if _segment_path_length(current_segment) < min_segment_length_units:
+        return
+    segments.append(current_segment)
 
 def _build_pattern_from_segments(
     segments,
@@ -373,7 +454,9 @@ def _build_pattern_from_segments(
     min_units,
     max_units,
     max_jump_units,
+    trim_jump_units,
     max_stitches,
+    allow_segment_reverse,
 ):
     valid_segments = []  #保存过滤后的有效路径
     
@@ -392,12 +475,16 @@ def _build_pattern_from_segments(
         }
 
     centered_segments = _center_segments(valid_segments)  #先把路径整体居中
-    ordered_segments = _order_segments_nearest(centered_segments)  #再按最近邻顺序排列
+    ordered_segments = _order_segments_nearest(
+        centered_segments,
+        allow_reverse=allow_segment_reverse,
+    )  #再按最近邻顺序排列
     return _write_segments_to_pattern(
         ordered_segments,  #传入排好序的路径
         min_units=min_units,  
         max_units=max_units,  
         max_jump_units=max_jump_units,  
+        trim_jump_units=trim_jump_units,
         max_stitches=max_stitches,  
     )
 
@@ -446,7 +533,7 @@ def _center_segments(segments):
     ]
 
 #使用最近邻算法对路径段进行排序，减少跳针距离
-def _order_segments_nearest(segments):
+def _order_segments_nearest(segments, allow_reverse=True):
    
     if len(segments) <= 1:
         return segments
@@ -475,7 +562,7 @@ def _order_segments_nearest(segments):
                 best_distance = dist_to_start
                 best_reversed = False
 
-            if dist_to_end < best_distance: #如果终点更近，则改用反向缝制
+            if allow_reverse and dist_to_end < best_distance: #如果终点更近且允许反向，则改用反向缝制
                 best_index = index 
                 best_distance = dist_to_end
                 best_reversed = True
@@ -494,6 +581,7 @@ def _write_segments_to_pattern(
     min_units,
     max_units,
     max_jump_units,
+    trim_jump_units,
     max_stitches,
 ):
     pattern = pyembroidery.EmbPattern()  #创建新刺绣
@@ -511,19 +599,28 @@ def _write_segments_to_pattern(
         start_x, start_y = segment[0]  #当前路径段起点
         travel_dist = math.hypot(start_x - current_x, start_y - current_y)  #计算到起点的移动距离
 
-        if index > 0 and travel_dist > max_jump_units: #跨段移动过长时，先插入一次剪线
-            pattern.add_command(pyembroidery.TRIM) 
+        if index > 0 and travel_dist > trim_jump_units:
+            pattern.add_command(pyembroidery.TRIM)
             trim_count += 1  #记录剪线次数
 
         current_x, current_y, added_jumps = _add_jump_limited(
             pattern,  #当前图案对象
-            current_x,  
-            current_y,  
-            start_x,  
-            start_y,  
-            max_jump_units,  
+            current_x,
+            current_y,
+            start_x,
+            start_y,
+            max_jump_units,
         )
         jump_count += added_jumps  #累加跳针数
+
+        if index == 0 and len(segment) >= 2 and stitch_count < max_stitches:
+            current_x, current_y, added = _add_start_lock_stitches(
+                pattern,
+                segment[0],
+                segment[1],
+                min_units,
+            )
+            stitch_count += added
 
         for tx, ty in segment[1:]: #从第二个点开始，把路径段写成真实落针
             if stitch_count >= max_stitches:
@@ -542,9 +639,27 @@ def _write_segments_to_pattern(
     pattern.add_command(pyembroidery.END)  
     return pattern, {
         "stitch_count": stitch_count,  #最终落针数
-        "jump_count": jump_count,  
-        "trim_count": trim_count,  
+        "jump_count": jump_count,
+        "trim_count": trim_count,
     }
+
+def _add_start_lock_stitches(pattern, start_point, next_point, min_units):
+    start_x, start_y = start_point
+    next_x, next_y = next_point
+    dist = math.hypot(next_x - start_x, next_y - start_y)
+    if dist <= 1e-6:
+        return start_x, start_y, 0
+
+    # Keep the tie-in short so the start point is secured without creating a visible blob.
+    lock_units = min(dist, max(1.0, min_units * 0.5))
+    ratio = lock_units / dist
+    lock_x = start_x + (next_x - start_x) * ratio
+    lock_y = start_y + (next_y - start_y) * ratio
+
+    pattern.add_stitch_absolute(pyembroidery.STITCH, lock_x, lock_y)
+    pattern.add_stitch_absolute(pyembroidery.STITCH, start_x, start_y)
+    pattern.add_stitch_absolute(pyembroidery.STITCH, lock_x, lock_y)
+    return lock_x, lock_y, 3
 
 #在限制针长的前提下添加一个或多个stitch命令，返回更新后的位置和新增针数
 def _add_stitch_limited(pattern, last_x, last_y, tx, ty, min_units, max_units):

@@ -379,10 +379,14 @@ document.addEventListener('DOMContentLoaded', function () {
             syncUploadZoneState();
         }
 
-        function setupSlider(slider, valueDisplay) {
+        function setupSlider(slider, valueDisplay, isContrast) {
             slider.addEventListener('input', function () {
-                updateSliderBackground(this);
-                valueDisplay.textContent = this.value;
+                if (isContrast) {
+                    updateContrastDisplay(this, valueDisplay);
+                } else {
+                    updateSliderBackground(this);
+                    valueDisplay.textContent = this.value;
+                }
                 if (uploadedImage) {
                     requestPatternPreview();
                 }
@@ -403,10 +407,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function handleFile(file) {
             if (requireAuthenticatedWorkspaceAction()) return;
-            if (file.size > 5 * 1024 * 1024) {
-                showMessageModal('File size cannot exceed 5MB. Please try again.');
-                return;
-            }
+            // if (file.size > 5 * 1024 * 1024) {
+            //     showMessageModal('File size cannot exceed 5MB. Please try again.');
+            //     return;
+            // }
 
             if (!['image/jpeg', 'image/png', 'image/bmp'].includes(file.type)) {
                 showMessageModal('Only JPG, PNG, BMP formats are supported.');
@@ -477,32 +481,14 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        setupSlider(linePrecisionSlider, linePrecisionValue);
-        setupSlider(cannyLowSlider, cannyLowValue);
-        setupSlider(cannyHighSlider, cannyHighValue);
-        setupSlider(rasterRowSpacingSlider, rasterRowSpacingValue);
-        setupSlider(rasterWhiteThresholdSlider, rasterWhiteThresholdValue);
-
-        cannyContrastBoostSlider.addEventListener('input', function () {
-            updateContrastDisplay(this, cannyContrastBoostValue);
-            if (uploadedImage) {
-                requestPatternPreview();
-            }
-        });
-
-        rasterContrastBoostSlider.addEventListener('input', function () {
-            updateContrastDisplay(this, rasterContrastBoostValue);
-            if (uploadedImage) {
-                requestPatternPreview();
-            }
-        });
-
-        lineContrastBoostSlider.addEventListener('input', function () {
-            updateContrastDisplay(this, lineContrastBoostValue);
-            if (uploadedImage) {
-                requestPatternPreview();
-            }
-        });
+        setupSlider(linePrecisionSlider,        linePrecisionValue,        false);
+        setupSlider(cannyLowSlider,             cannyLowValue,             false);
+        setupSlider(cannyHighSlider,            cannyHighValue,            false);
+        setupSlider(rasterRowSpacingSlider,     rasterRowSpacingValue,     false);
+        setupSlider(rasterWhiteThresholdSlider, rasterWhiteThresholdValue, false);
+        setupSlider(lineContrastBoostSlider,    lineContrastBoostValue,    true);
+        setupSlider(cannyContrastBoostSlider,   cannyContrastBoostValue,   true);
+        setupSlider(rasterContrastBoostSlider,  rasterContrastBoostValue,  true);
 
         [
             targetWidthInput,
