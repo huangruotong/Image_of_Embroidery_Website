@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 
 from flask import Flask, request, jsonify, send_file, render_template, session
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from embroidery import (
@@ -16,39 +17,40 @@ from embroidery import (
     pattern_path_metrics,
     pattern_to_data_url,
     photo_to_raster_embroidery,
-    photo_to_line_embroidery,
 )
 
+#创建一个网站应用，名字是地址。防止伪造登录，加上防伪签名
+#项目的路径。获得系统数据地址。数据库的位置。备用数据库地址
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent 
 LOCAL_APPDATA_DIR = Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local'))
 DEFAULT_DB_DIR = LOCAL_APPDATA_DIR / 'EmbroideryDesign'
 PROJECT_DB_PATH = PROJECT_ROOT / 'users.db'
 
-
+#检查路径能否写数据库，防御
 def can_write_db_path(db_path):
     db_path = Path(db_path)
     try:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path.parent.mkdir(parents=True, exist_ok=True) #尝试建文件，失败退出
     except OSError:
         return False
 
-    if db_path.exists():
+    if db_path.exists():#文件是否存在。存在打开，不存在返回
         try:
-            with open(db_path, 'a+b'):
+            with open(db_path, 'a+b'): #打开模式
                 pass
         except OSError:
             return False
     else:
         try:
-            with open(db_path, 'a+b'):
+            with open(db_path, 'a+b'): #文件不存在，新建打开。删除刚才测试文件
                 pass
             db_path.unlink()
         except OSError:
             return False
 
-    probe_path = db_path.parent / f'.{db_path.name}.write-probe'
+    probe_path = db_path.parent / f'.{db_path.name}.write-probe'#确保能创建新文件
     try:
         with open(probe_path, 'xb'):
             pass
@@ -58,7 +60,7 @@ def can_write_db_path(db_path):
 
     return True
 
-
+#防御，获取数据库优先级路径。手动指定，系统的数据地址，项目文件
 def resolve_db_path(configured_db_path=None, preferred_db_path=None, fallback_db_path=None):
     configured_db_path = configured_db_path or os.environ.get('DB_PATH')
     if configured_db_path:
@@ -74,54 +76,43 @@ def resolve_db_path(configured_db_path=None, preferred_db_path=None, fallback_db
 
 
 app.config['DB_PATH'] = str(resolve_db_path())
-app.config['DB_INITIALIZED_FOR'] = None
-FIXED_HOOP_WIDTH_MM = 130.0
-FIXED_HOOP_HEIGHT_MM = 180.0
-DEFAULT_EMBROIDERY_MODE = 'line'
+app.config['DB_INITIALIZED_FOR'] = None #数据路径初始化为空
+
+#参数初始化的设置
+FIXED_TARGET_WIDTH_MM = 100.0
+MAX_CANNY_WORK_LONG_SIDE = 2200
+DEFAULT_EMBROIDERY_MODE = 'canny'
 DEFAULT_COMMON_SETTINGS = {
-    'target_width_mm': 100.0,
     'min_stitch_len_mm': 0.8,
     'max_stitch_len_mm': 6.0,
 }
-DEFAULT_LINE_SETTINGS = {
-    'line_precision': 50,
-    'line_contrast_boost': 1.8,
-}
 DEFAULT_CANNY_SETTINGS = {
-    'canny_low': 90,
-    'canny_high': 210,
-    'canny_contrast_boost': 1.0,
+    'canny_low': 80,
+    'canny_high': 180,
+    'canny_contrast_boost': 1.3,
+    'canny_auto_thresholds': True,
+    'canny_min_stitch_mm': 0.7,
 }
 DEFAULT_RASTER_SETTINGS = {
-    'raster_row_spacing': 6,
-    'raster_min_stitch': 3,
-    'raster_max_stitch': 10,
-    'raster_white_threshold': 220,
-    'raster_contrast_boost': 1.4,
+    'raster_row_spacing': 5,
+    'raster_min_stitch': 2,
+    'raster_max_stitch': 12,
+    'raster_white_threshold': 210,
+    'raster_contrast_boost': 1.8,
 }
-MODE_PROCESSING_PX_PER_MM = {
-    'line': 5.0,
-    'raster': 4.0,
-    'canny': 4.0,
-}
-MODE_DENSITY_LIMITS = {
-    'line': 0.50,
-    'raster': 0.65,
-    'canny': 0.55,
-}
-MAX_UNTRIMMED_JUMP_RUN_MM = 8.0
 
-#限制上传文件大小为5mb
-# app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+# Limit uploaded files to 10MB.
+MAX_UPLOAD_SIZE_MB = 10
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 ALLOWED_EXPORT_FORMATS = {'.pes', '.dst', '.jef', '.exp'}
-ALLOWED_MODES = {'line', 'canny', 'raster'}
+ALLOWED_MODES = {'canny', 'raster'}
 
-
+#获取数据库路径
 def get_db_path():
     return Path(app.config['DB_PATH'])
 
-
+#连接数据库。获得路径，连接，能用名字取值，给别人使用，最后关闭连接
 @contextmanager
 def get_db_connection():
     db_path = get_db_path()
@@ -132,8 +123,8 @@ def get_db_connection():
     finally:
         conn.close()
 
-
-def _create_users_table(conn):
+#建用户表。如果表不存在就建表
+def create_users_table(conn):
     conn.execute(
         '''
         CREATE TABLE IF NOT EXISTS users (
@@ -147,13 +138,13 @@ def _create_users_table(conn):
     )
     conn.commit()
 
-
+#初始化数据库，才能存账号。获得路径，建文件夹，连接建表
 def init_db():
     db_path = get_db_path()
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     try:
         with get_db_connection() as conn:
-            _create_users_table(conn)
+            create_users_table(conn)
     except sqlite3.OperationalError:
         journal_path = Path(f"{db_path}-journal")
         if not journal_path.exists():
@@ -161,12 +152,12 @@ def init_db():
 
         recovery_path = Path(f"{journal_path}.stale")
         suffix = 1
-        while recovery_path.exists():
+        while recovery_path.exists(): #之前的修复文件还在，命名加一
             recovery_path = Path(f"{journal_path}.stale.{suffix}")
             suffix += 1
 
         rename_error = None
-        for _ in range(10):
+        for _ in range(10):#十次循环，把文件搬走成功就跳出。有错误就等待再试
             try:
                 journal_path.replace(recovery_path)
                 rename_error = None
@@ -176,19 +167,19 @@ def init_db():
                 time.sleep(0.1)
 
         if rename_error is not None:
-            raise rename_error
+            raise rename_error #最后一次尝试搬走文件，如果还失败就报错
 
-        with get_db_connection() as conn:
-            _create_users_table(conn)
-    app.config['DB_INITIALIZED_FOR'] = str(db_path)
+        with get_db_connection() as conn:#搬走文件成功后再连接数据库，建表
+            create_users_table(conn)
+    app.config['DB_INITIALIZED_FOR'] = str(db_path) #标记已经初始化
 
-
+#确保数据库准备好
 def ensure_db_ready():
     db_path = str(get_db_path())
     if app.config.get('DB_INITIALIZED_FOR') != db_path:
         init_db()
 
-
+#获得用户信息。用户不在里面就返回，有就返回信息
 def current_user_payload():
     if 'user_id' not in session:
         return None
@@ -198,20 +189,20 @@ def current_user_payload():
         'email': session.get('user_email')
     }
 
-
+#防御。将滑块的数值转换成正确的数字，为了后续传给后端刺绣
 def parse_int(form, name, default, min_value=None, max_value=None):
-    raw = form.get(name)
-    try:
+    raw = form.get(name) #从表单中获得名字
+    try: #上面变量为空用备用值，有值转换成数值
         value = default if raw in (None, '') else int(raw)
     except (TypeError, ValueError):
-        value = default
+        value = default #类型错误，值错误，就用备用值
     if min_value is not None:
         value = max(min_value, value)
     if max_value is not None:
         value = min(max_value, value)
     return value
 
-
+#转成小数
 def parse_float(form, name, default, min_value=None, max_value=None):
     raw = form.get(name)
     try:
@@ -224,79 +215,31 @@ def parse_float(form, name, default, min_value=None, max_value=None):
         value = min(max_value, value)
     return value
 
+#转成布尔，获得字符串去掉空格变小写之后在括号里，为真。处理自动开关
+def parse_bool(form, name, default=False):
+    raw = form.get(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {'1', 'true', 'yes', 'on'}
 
-def resolve_processing_geometry(mode, source_width_px, target_width_mm):
-    target_px_per_mm = MODE_PROCESSING_PX_PER_MM[mode]
-    processed_width_px = max(
-        1,
-        min(source_width_px, int(round(target_width_mm * target_px_per_mm))),
-    )
-    processing_scale = processed_width_px / max(source_width_px, 1)
-    processing_mm_per_pixel = target_width_mm / processed_width_px
-    return processing_scale, processing_mm_per_pixel
-
-
+#重新翻译参数，传入表单里面是网站参数。获得模式或默认模式
+#如果模式不在模式表里，抛出错误加信息不支持模式
 def resolve_embroidery_settings(form):
-    hoop_width_mm = FIXED_HOOP_WIDTH_MM
-    hoop_height_mm = FIXED_HOOP_HEIGHT_MM
-
     mode = (form.get('mode') or DEFAULT_EMBROIDERY_MODE).lower()
     if mode not in ALLOWED_MODES:
         raise ValueError('Unsupported mode')
 
-    target_width_mm = parse_float(
-        form,
-        'target_width_mm',
-        DEFAULT_COMMON_SETTINGS['target_width_mm'],
-        40.0,
-        300.0,
-    )
-    min_stitch_len_mm = parse_float(
-        form,
-        'min_stitch_len_mm',
-        DEFAULT_COMMON_SETTINGS['min_stitch_len_mm'],
-        0.4,
-        3.0,
-    )
-    max_stitch_len_mm = parse_float(
-        form,
-        'max_stitch_len_mm',
-        DEFAULT_COMMON_SETTINGS['max_stitch_len_mm'],
-        2.0,
-        12.0,
-    )
-    if max_stitch_len_mm < min_stitch_len_mm:
-        max_stitch_len_mm = min_stitch_len_mm
+    target_width_mm = FIXED_TARGET_WIDTH_MM
+    min_stitch_len_mm = DEFAULT_COMMON_SETTINGS['min_stitch_len_mm']
+    max_stitch_len_mm = DEFAULT_COMMON_SETTINGS['max_stitch_len_mm']
 
+    #这里创建字典，键配对值，用了四舍五入保留一位小数
     settings = {
         'mode': mode,
         'target_width_mm': round(target_width_mm, 1),
         'min_stitch_len_mm': round(min_stitch_len_mm, 1),
         'max_stitch_len_mm': round(max_stitch_len_mm, 1),
-        'hoop_width_mm': round(hoop_width_mm, 1),
-        'hoop_height_mm': round(hoop_height_mm, 1),
     }
-
-    if mode == 'line':
-        line_precision = parse_int(
-            form,
-            'line_precision',
-            DEFAULT_LINE_SETTINGS['line_precision'],
-            0,
-            100,
-        )
-        line_contrast_boost = parse_float(
-            form,
-            'line_contrast_boost',
-            DEFAULT_LINE_SETTINGS['line_contrast_boost'],
-            0.8,
-            3.0,
-        )
-        settings.update({
-            'line_precision': line_precision,
-            'line_contrast_boost': round(line_contrast_boost, 1),
-        })
-        return settings
 
     if mode == 'raster':
         row_spacing = parse_int(
@@ -368,51 +311,39 @@ def resolve_embroidery_settings(form):
         0.8,
         3.0,
     )
-    settings.update({
+    canny_auto_thresholds = parse_bool( #传入自动开关使用
+        form,
+        'canny_auto_thresholds',
+        DEFAULT_CANNY_SETTINGS['canny_auto_thresholds'],
+    )
+    canny_min_stitch_mm = DEFAULT_CANNY_SETTINGS['canny_min_stitch_mm']
+    settings.update({ #把参数数值保存更新
         'canny_low': canny_low,
         'canny_high': canny_high,
         'canny_contrast_boost': round(canny_contrast_boost, 1),
+        'canny_auto_thresholds': canny_auto_thresholds,
+        'canny_min_stitch_mm': round(canny_min_stitch_mm, 1),
     })
     return settings
 
-
+#构建刺绣图案，表单里是网站里参数，后面是默认值。将数据整理放进字典中
 def build_embroidery_pattern(img, form, return_details=False):
     settings = resolve_embroidery_settings(form)
     target_width_mm = settings['target_width_mm']
     source_width_px = max(img.shape[1], 1)
+    mm_per_pixel = target_width_mm / source_width_px #计算每像素多少毫米，建字典
+    stats = {}
 
     min_stitch_len_mm = settings['min_stitch_len_mm']
     max_stitch_len_mm = settings['max_stitch_len_mm']
     mode = settings['mode']
-    processing_scale, processing_mm_per_pixel = resolve_processing_geometry(
-        mode,
-        source_width_px,
-        target_width_mm,
-    )
 
-    if mode == 'line':
-        line_precision = settings['line_precision']
-        line_contrast_boost = settings['line_contrast_boost']
-        min_spacing = max(1, int(5 - line_precision / 25))
-        max_spacing = max(min_spacing + 1, int(18 - line_precision / 8))
-        line_white_threshold = int(245 - line_precision * 0.6)
-        pattern = photo_to_line_embroidery(
-            img,
-            scale=processing_scale,
-            contrast_boost=line_contrast_boost,
-            mm_per_pixel=processing_mm_per_pixel,
-            min_spacing=min_spacing,
-            max_spacing=max_spacing,
-            white_threshold=line_white_threshold,
-            min_stitch_mm=min_stitch_len_mm,
-            max_stitch_mm=max_stitch_len_mm,
-        )
-    elif mode == 'raster':
+    if mode == 'raster':
         pattern = photo_to_raster_embroidery(
             img,
-            scale=processing_scale,
+            scale=1.0,
             contrast_boost=settings['raster_contrast_boost'],
-            mm_per_pixel=processing_mm_per_pixel,
+            mm_per_pixel=mm_per_pixel,
             row_spacing=settings['raster_row_spacing'],
             min_stitch=settings['raster_min_stitch'],
             max_stitch=settings['raster_max_stitch'],
@@ -421,16 +352,29 @@ def build_embroidery_pattern(img, form, return_details=False):
             max_stitch_mm=max_stitch_len_mm,
         )
     else:
-        pattern = image_to_embroidery_canny(
+        canny_result = image_to_embroidery_canny(
             img,
-            scale=processing_scale,
-            threshold1=settings['canny_low'],
-            threshold2=settings['canny_high'],
+            scale=1.0, #这里检查是自动开关还是用户值
+            threshold1=None if settings['canny_auto_thresholds'] else settings['canny_low'],
+            threshold2=None if settings['canny_auto_thresholds'] else settings['canny_high'],
             contrast_boost=settings['canny_contrast_boost'],
-            min_stitch_mm=min_stitch_len_mm,
+            min_stitch_mm=settings['canny_min_stitch_mm'],
             max_stitch_mm=max_stitch_len_mm,
-            mm_per_pixel=processing_mm_per_pixel,
+            mm_per_pixel=mm_per_pixel,
+            target_width_mm=target_width_mm,
+            max_work_long_side=MAX_CANNY_WORK_LONG_SIDE,
+            return_details=return_details,
         )
+        #变量为要不要返回详细信息，布尔值，为真执行。否则上面存的值赋值过去
+        if return_details:
+            pattern = canny_result['pattern']
+            stats = canny_result['stats']
+            settings['canny_resolved_low'] = canny_result['used_threshold1']
+            settings['canny_resolved_high'] = canny_result['used_threshold2']
+            settings['canny_processed_width_px'] = canny_result['processed_width_px']
+            settings['canny_processed_height_px'] = canny_result['processed_height_px']
+        else:
+            pattern = canny_result
 
     if not return_details:
         return pattern
@@ -438,30 +382,17 @@ def build_embroidery_pattern(img, form, return_details=False):
     return {
         'pattern': pattern,
         'settings': settings,
+        'stats': stats,
     }
 
-
-def get_export_blocking_error(pattern, settings):
-    if not pattern_has_stitches(pattern):
+#导出前的检查，
+def get_export_blocking_error(pattern):
+    if not pattern_has_stitches(pattern): #检查是否有下针，没有就返回
         return 'No stitches generated for this image and parameter combination'
 
     metrics = pattern_path_metrics(pattern)
-    if (
-        metrics['design_width_mm'] > settings['hoop_width_mm'] + 1e-6
-        or metrics['design_height_mm'] > settings['hoop_height_mm'] + 1e-6
-    ):
-        return (
-            f"This size exceeds the hoop limit "
-            f"({settings['hoop_width_mm']:g} x {settings['hoop_height_mm']:g} mm)."
-        )
     if metrics['stitch_count'] > 60000:
         return 'Stitch count is too high for a safe first-pass export.'
-    if metrics['max_untrimmed_jump_run_length_mm'] > MAX_UNTRIMMED_JUMP_RUN_MM:
-        return 'Untrimmed jump travel is too long for a safe first-pass export.'
-
-    density_limit = MODE_DENSITY_LIMITS.get(settings['mode'])
-    if density_limit is not None and metrics['stitch_density_per_mm2'] > density_limit:
-        return 'Stitch density is too high for a safe first-pass export.'
 
     return None
 
@@ -471,10 +402,15 @@ def get_preview_canvas_size(img, max_side=800):
     scale = 1.0 if max(h, w) <= max_side else max_side / max(h, w)
     return max(1, int(w * scale)), max(1, int(h * scale))
 
+#错误处理，文件太大了就返回错误信息
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(_exc):
+    return jsonify({'error': f'File size cannot exceed {MAX_UPLOAD_SIZE_MB}MB'}), 413
+
 #首页路由
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html') #用了渲染
 
 #登录页路由
 @app.route('/login')
@@ -489,11 +425,7 @@ def signup():
 #工作台路由
 @app.route('/workspace')
 def workspace():
-    return render_template(
-        'workspace.html',
-        hoop_width_mm=FIXED_HOOP_WIDTH_MM,
-        hoop_height_mm=FIXED_HOOP_HEIGHT_MM,
-    )
+    return render_template('workspace.html')
 
 #指南页路由
 @app.route('/guide')
@@ -501,22 +433,22 @@ def guide():
     return render_template('guide.html')
 
 
-#认证接口
+#认证接口，注册
 @app.route('/api/auth/signup', methods=['POST'])
 def auth_signup():
     try:
-        ensure_db_ready()
-        payload = request.get_json(silent=True) or {}
-        name = (payload.get('name') or '').strip()
+        ensure_db_ready() #防御，
+        payload = request.get_json(silent=True) or {} 
+        name = (payload.get('name') or '').strip()#不能全是空格，去掉空格，邮箱小写
         email = (payload.get('email') or '').strip().lower()
-        password = payload.get('password') or ''
+        password = payload.get('password') or ''#把数据整理干净和格式统一
 
         if not name or not email or not password:
             return jsonify({'error': 'Name, email and password are required'}), 400
         if len(password) < 8:
             return jsonify({'error': 'Password must be at least 8 characters'}), 400
 
-        password_hash = generate_password_hash(password)
+        password_hash = generate_password_hash(password) #加密
 
         with get_db_connection() as conn:
             try:
@@ -524,20 +456,22 @@ def auth_signup():
                     'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
                     (name, email, password_hash)
                 )
-                user_id = cursor.lastrowid
-                conn.commit()
-            except sqlite3.IntegrityError:
+                user_id = cursor.lastrowid #拿到新用户，自动加一
+                conn.commit() #保存到数据库
+            except sqlite3.IntegrityError: #邮箱错误，
                 return jsonify({'error': 'Email is already registered'}), 409
 
-        session['user_id'] = user_id
+        session['user_id'] = user_id #登录状态保存在服务器session中，注册完不用再登录
         session['user_name'] = name
         session['user_email'] = email
 
         return jsonify({'message': 'Account created', 'user': current_user_payload()}), 201
-    except Exception as e:
+    except RequestEntityTooLarge:
+        return handle_file_too_large(None)
+    except Exception as e: #获得其他错误信息
         return jsonify({'error': str(e)}), 500
 
-
+#登录，读取用户。验证邮件和密码，
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
     try:
@@ -550,10 +484,10 @@ def auth_login():
             return jsonify({'error': 'Email and password are required'}), 400
 
         with get_db_connection() as conn:
-            user = conn.execute(
+            user = conn.execute( #查询数据库，看看有没有这个邮箱的用户
                 'SELECT id, name, email, password_hash FROM users WHERE email = ?',
                 (email,)
-            ).fetchone()
+            ).fetchone() #获得查询信息
 
         if not user or not check_password_hash(user['password_hash'], password):
             return jsonify({'error': 'Invalid email or password'}), 401
@@ -563,7 +497,9 @@ def auth_login():
         session['user_email'] = user['email']
 
         return jsonify({'message': 'Login successful', 'user': current_user_payload()}), 200
-    except Exception as e:
+    except RequestEntityTooLarge:
+        return handle_file_too_large(None)
+    except Exception as e: #获取错误信息
         return jsonify({'error': str(e)}), 500
 
 
@@ -597,21 +533,21 @@ def export_image():
 
         result = build_embroidery_pattern(img, request.form, return_details=True)
         pattern = result['pattern']
-        export_error = get_export_blocking_error(pattern, result['settings'])
+        export_error = get_export_blocking_error(pattern)#检查是否有刺绣命令，没有就错误
         if export_error:
             return jsonify({'error': export_error}), 400
 
-        # Windows 下 NamedTemporaryFile 会持续占用句柄，因此先生成路径，再手动清理。
+        # 临时文件问题。获得文件路径。会持续占用句柄，因此先生成路径，再手动清理。
         temp_fd, temp_path = tempfile.mkstemp(suffix=export_format)
         os.close(temp_fd)
         try:
-            pattern.write(temp_path)
+            pattern.write(temp_path)#交给刺绣语言去写，读完后放在缓冲区
             with open(temp_path, 'rb') as temp_file:
                 output = BytesIO(temp_file.read())
                 output.seek(0)
         finally:
             try:
-                os.remove(temp_path)
+                os.remove(temp_path) #把临时文件删除，发给浏览器
             except OSError:
                 pass
 
@@ -632,12 +568,14 @@ def export_image():
             download_name=f'embroidery_design{export_format}'
         )
 
+    except RequestEntityTooLarge:
+        return handle_file_too_large(None)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-#预览接口
+#实时预览接口
 @app.route('/api/preview', methods=['POST'])
 def preview_image():
     try:
@@ -654,7 +592,9 @@ def preview_image():
 
         result = build_embroidery_pattern(img, request.form, return_details=True)
         pattern = result['pattern']
-        preview = pattern_to_data_url(
+        stats = result.get('stats', {})
+        metrics = pattern_path_metrics(pattern)
+        preview = pattern_to_data_url( #将图案画成一张图
             pattern,
             canvas_size=get_preview_canvas_size(img)
         )
@@ -662,8 +602,13 @@ def preview_image():
             'preview': preview,
             'empty': not pattern_has_stitches(pattern),
             'applied_settings': result['settings'],
+            'metrics': metrics,
+            'truncated': bool(stats.get('truncated', False)),
+            'max_stitches': stats.get('max_stitches'),
         }), 200
 
+    except RequestEntityTooLarge:
+        return handle_file_too_large(None)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     except Exception as e:

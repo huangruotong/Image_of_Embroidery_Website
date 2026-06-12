@@ -29,3 +29,5 @@ temp_files/
 
 .DS_Store
 Thumbs.db
+
+.claude/

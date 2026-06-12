@@ -44,7 +44,7 @@
                 </div>
                 <h2 class="text-3xl font-bold text-red-600">Error</h2>
             </div>
-            <p id="error-modal-message" class="text-gray-600 text-base mb-6 ml-4">File size cannot exceed 5MB. Please try again!</p>
+            <p id="error-modal-message" class="text-gray-600 text-base mb-6 ml-4">File size cannot exceed 10MB. Please try again!</p>
             <div class="flex justify-end">
                 <button id="error-modal-ok" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-base">
                     OK
@@ -56,12 +56,7 @@
 {% endblock %}
 
 {% block content %}
-<main
-    id="workspace-root"
-    class="flex-1 py-8"
-    data-hoop-width-mm="{{ hoop_width_mm }}"
-    data-hoop-height-mm="{{ hoop_height_mm }}"
->
+<main id="workspace-root" class="flex-1 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-8">
             <h1 class="text-3xl font-bold mb-2 primary-text">
@@ -87,7 +82,7 @@
                             Drag and drop your image here, or click to upload
                         </p>
                         <p class="text-xs text-gray-400">
-                            Supports JPG, PNG, BMP (Max 5MB)
+                            Supports JPG, PNG, BMP (Max 10MB)
                         </p>
                         <input type="file" id="file-input" accept="image/jpeg,image/png,image/bmp" class="hidden">
                     </div>
@@ -99,27 +94,19 @@
                     </h3>
                     
                     <div class="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
-                        <button class="tab-button active flex-1" data-mode="line">Line</button>
-                        <button class="tab-button flex-1" data-mode="canny">Canny</button>
+                        <button class="tab-button active flex-1" data-mode="canny">Canny</button>
                         <button class="tab-button flex-1" data-mode="raster">Raster</button>
                     </div>
 
-                    <div id="line-params" class="space-y-4">
+                    <div id="canny-params" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium mb-2">Line Detail</label>
-                            <input type="range" class="slider" id="line-precision" min="0" max="100" value="50" style="--value: 50%">
-                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="line-value">50</span></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Image Contrast</label>
-                            <input type="range" class="slider" id="line-contrast-boost" min="1" max="30" value="18" style="--value: 58.6%">
-                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="line-contrast-boost-value">1.8</span></p>
-                        </div>
-                    </div>
-
-                    <div id="canny-params" class="space-y-4 hidden">
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Detail Sensitivity</label>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium">Detail Sensitivity</label>
+                                <div class="flex items-center gap-2">
+                                    <label for="canny-auto-thresholds" class="text-sm font-medium">Auto</label>
+                                    <input type="checkbox" id="canny-auto-thresholds" checked>
+                                </div>
+                            </div>
                             <input type="range" class="slider" id="canny-low" min="0" max="255" value="50" style="--value: 19.6%">
                             <p class="text-xs text-gray-500 mt-1">Current value: <span id="canny-low-value">50</span></p>
                         </div>
@@ -128,23 +115,18 @@
                             <input type="range" class="slider" id="canny-high" min="0" max="255" value="150" style="--value: 58.8%">
                             <p class="text-xs text-gray-500 mt-1">Current value: <span id="canny-high-value">150</span></p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Image Contrast</label>
-                            <input type="range" class="slider" id="canny-contrast-boost" min="1" max="30" value="18" style="--value: 58.6%">
-                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="canny-contrast-boost-value">1.8</span></p>
-                        </div>
                     </div>
 
                     <div id="raster-params" class="space-y-4 hidden">
                         <div>
                             <label class="block text-sm font-medium mb-2">Line Density</label>
-                            <input type="range" class="slider" id="raster-row-spacing" min="1" max="16" value="4" style="--value: 20%">
-                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="raster-row-spacing-value">4</span></p>
+                            <input type="range" class="slider" id="raster-row-spacing" min="1" max="16" value="5" style="--value: 26.7%">
+                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="raster-row-spacing-value">5</span></p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-2">Highlight Range</label>
-                            <input type="range" class="slider" id="raster-white-threshold" min="120" max="250" value="220" style="--value: 76.9%">
-                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="raster-white-threshold-value">220</span></p>
+                            <input type="range" class="slider" id="raster-white-threshold" min="120" max="250" value="210" style="--value: 69.2%">
+                            <p class="text-xs text-gray-500 mt-1">Current value: <span id="raster-white-threshold-value">210</span></p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-2">Image Contrast</label>
@@ -156,36 +138,19 @@
 
                 <div id="settings-card" class="bg-white rounded-lg p-6 border-2 hidden">
                     <h3 class="font-semibold mb-4 primary-text">
-                        3. Embroidery Settings
+                        3. Embroidery Size
                     </h3>
                     
-                    <div class="space-y-4">
-                        <div>
-                            <label for="target-width" class="block text-sm font-medium mb-1">Target Width (mm)</label>
-                            <input type="number" id="target-width" value="100" min="40" max="300" class="w-full px-3 py-2 border-2 rounded-lg">
-                            <p id="target-width-error" class="hidden mt-2 text-xs text-red-600 flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span id="target-width-error-text">This size exceeds the hoop limit ({{ hoop_width_mm|int }} x {{ hoop_height_mm|int }} mm).</span>
-                            </p>
-                        </div>
-                        <div>
-                            <label for="raster-min-stitch" class="block text-sm font-medium mb-1">Raster Min Step (px)</label>
-                            <input type="number" id="raster-min-stitch" value="2" min="1" max="20" class="w-full px-3 py-2 border-2 rounded-lg">
-                        </div>
-                        <div>
-                            <label for="raster-max-stitch" class="block text-sm font-medium mb-1">Raster Max Step (px)</label>
-                            <input type="number" id="raster-max-stitch" value="12" min="2" max="40" class="w-full px-3 py-2 border-2 rounded-lg">
-                        </div>
-                        <div>
-                            <label for="min-stitch-len" class="block text-sm font-medium mb-1">Min Stitch Length (mm)</label>
-                            <input type="number" id="min-stitch-len" value="0.8" min="0.4" max="3" step="0.1" class="w-full px-3 py-2 border-2 rounded-lg">
-                        </div>
-                        <div>
-                            <label for="max-stitch-len" class="block text-sm font-medium mb-1">Max Stitch Length (mm)</label>
-                            <input type="number" id="max-stitch-len" value="6.0" min="2" max="12" step="0.1" class="w-full px-3 py-2 border-2 rounded-lg">
-                        </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <button type="button" class="size-option-button bg-white text-gray-700 py-3 px-4 rounded-lg border-2 border-gray-200 font-medium hover:bg-gray-50 transition-colors" data-size-option="small">
+                            Small
+                        </button>
+                        <button type="button" class="size-option-button primary-bg text-white py-3 px-4 rounded-lg border-2 border-transparent font-medium transition-colors" data-size-option="medium">
+                            Medium
+                        </button>
+                        <button type="button" class="size-option-button bg-white text-gray-700 py-3 px-4 rounded-lg border-2 border-gray-200 font-medium hover:bg-gray-50 transition-colors" data-size-option="big">
+                            Big
+                        </button>
                     </div>
                 </div>
 
@@ -267,6 +232,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <div id="pattern-metrics" class="hidden mt-4 text-sm text-gray-700 bg-gray-50 border rounded-lg p-3 space-y-1"></div>
 
                 </div>
             </div>

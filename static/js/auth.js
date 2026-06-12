@@ -5,8 +5,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const modalCancel = document.getElementById('modal-cancel');
         const modalLogin = document.getElementById('modal-login');
 
-        function showLoginRequiredModal() {
-            if (!loginModal) return;
+        function showLoginRequiredModal() { //需登录弹窗
+            if (!loginModal) return; //防御，判断是否存在弹窗，不存在就退出
             loginModal.classList.remove('hidden');
         }
 
@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', function () {
             document.dispatchEvent(new CustomEvent('auth-state-changed', {
                 detail: authState
             }));
+            if (!authState.authenticated && loginModal) {
+                showLoginRequiredModal();
+            }
             return authState;
         }
 

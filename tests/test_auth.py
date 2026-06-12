@@ -1,7 +1,7 @@
+import re
 import shutil
 import tempfile
 from pathlib import Path
-
 import app as app_module
 
 
@@ -187,3 +187,22 @@ class TestAuthSession:
 
         response = client.get('/api/auth/me')
         assert response.get_json()['authenticated'] is False
+
+
+class TestWorkspaceAuthModal:
+    def test_workspace_renders_login_modal_hidden_by_default(self, client):
+        response = client.get('/workspace')
+
+        assert response.status_code == 200
+        html = response.get_data(as_text=True)
+        match = re.search(r'id="login-modal" class="([^"]+)"', html)
+
+        assert match is not None
+        assert 'hidden' in match.group(1).split()
+
+    def test_auth_script_shows_login_modal_for_anonymous_workspace_user(self):
+        auth_js = Path(__file__).resolve().parent.parent / 'static' / 'js' / 'auth.js'
+        script = auth_js.read_text(encoding='utf-8')
+
+        assert "if (!authState.authenticated && loginModal)" in script
+        assert "showLoginRequiredModal();" in script

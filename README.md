@@ -6,21 +6,21 @@ You can upload an image, choose a mode to generate embroidery files.
 
 ## Features
 
-- Upload `JPG`, `PNG`, or `BMP` images up to 5 MB
+- Upload `JPG`, `PNG`, or `BMP` images up to 10 MB
 - Preview the result in the browser before exporting
-- Three processing modes: 'line', 'canny', 'raster'
+- Two processing modes: `canny`, `raster`
 - Adjust width, stitch length, contrast, and details settings
 - Export machine embroidery formats: `.pes`, `.dst`, `.jef`, `.exp`
 - Download the current preview as `.png`
 - Store users in SQLite with hashed passwords
 
 ## Usage
-1.Upload a JPG, PNG, or BMP image
-2.Choose a mode: line, canny, or raster
-3.Adjust detail settings for the image
-4.View the preview results in the browser
-5.Save the current preview as .png
-6.Export the design as an embroidery file
+1. Upload a JPG, PNG, or BMP image
+2. Choose a mode: `canny` or `raster`
+3. Adjust the image and stitch settings
+4. View the preview results in the browser
+5. Save the current preview as `.png`
+6. Export the design as an embroidery file
 
 ## Requirements
 
